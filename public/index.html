@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chat Papá & Hija 💬</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Screen 1: Profile Selection Modal -->
+  <div id="profile-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="app-brand">
+        <div class="brand-icon">💬</div>
+        <h2>Bienvenido</h2>
+        <p>Selecciona quién está usando este dispositivo:</p>
+      </div>
+
+      <div class="profiles-grid">
+        <button class="profile-btn" data-user="Papá">
+          <div class="avatar avatar-dad">👨</div>
+          <span>Papá</span>
+        </button>
+        <button class="profile-btn" data-user="Hija">
+          <div class="avatar avatar-daughter">👧</div>
+          <span>Hija</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Main Chat Container -->
+  <div id="chat-app" class="chat-app hidden">
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="header-user-info">
+        <div class="current-avatar" id="header-avatar">👨</div>
+        <div class="user-details">
+          <h3 id="chat-partner-name">Mi Hija</h3>
+          <span class="status-badge" id="status-badge">
+            <span class="status-dot offline" id="status-dot"></span>
+            <span id="status-text">Desconectado</span>
+          </span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="switch-user-btn" title="Cambiar de usuario">
+          <i class="fa-solid fa-user-switch"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Typing Bar Banner -->
+    <div id="typing-indicator" class="typing-indicator hidden">
+      <span class="typing-dots">
+        <span></span><span></span><span></span>
+      </span>
+      <span id="typing-text">está escribiendo...</span>
+    </div>
+
+    <!-- Messages Container -->
+    <main class="messages-container" id="messages-container">
+      <div class="welcome-banner">
+        <div class="welcome-icon">🔐</div>
+        <p>Chat privado e instantáneo entre Papá e Hija.</p>
+        <span class="security-tag">Los mensajes están guardados de forma segura localmente.</span>
+      </div>
+      <div id="messages-list" class="messages-list"></div>
+    </main>
+
+    <!-- Recording Bar Overlay (When recording audio) -->
+    <div id="recording-bar" class="recording-bar hidden">
+      <div class="recording-pulse">🔴</div>
+      <span class="recording-timer" id="recording-timer">00:00</span>
+      <span class="recording-label">Grabando nota de voz...</span>
+      <div class="recording-actions">
+        <button type="button" class="btn-cancel-rec" id="btn-cancel-rec" title="Cancelar">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+        <button type="button" class="btn-send-rec" id="btn-send-rec" title="Enviar audio">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer Input Bar -->
+    <footer class="chat-input-bar">
+      <!-- Hidden File Inputs -->
+      <input type="file" id="file-input" accept="image/*" class="hidden">
+
+      <button type="button" class="icon-btn" id="btn-attach" title="Enviar Foto">
+        <i class="fa-solid fa-paperclip"></i>
+      </button>
+
+      <div class="input-wrapper">
+        <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off">
+      </div>
+
+      <button type="button" class="icon-btn mic-btn" id="btn-mic" title="Grabar nota de voz">
+        <i class="fa-solid fa-microphone"></i>
+      </button>
+
+      <button type="button" class="icon-btn send-btn" id="btn-send" title="Enviar">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </footer>
+  </div>
+
+  <!-- Screen 3: Image Lightbox Modal -->
+  <div id="lightbox-modal" class="lightbox-modal hidden">
+    <button class="lightbox-close" id="lightbox-close">&times;</button>
+    <img id="lightbox-img" src="" alt="Vista previa">
+    <a id="lightbox-download" href="" download class="lightbox-download-btn">
+      <i class="fa-solid fa-download"></i> Descargar Foto
+    </a>
+  </div>
+
+  <!-- Socket.io client script -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
