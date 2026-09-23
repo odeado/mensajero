@@ -5,13 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#202c33">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Chat">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Chat 💬</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/extra.css">
+  <link rel="stylesheet" href="css/fun.css">
 </head>
 <body>
 
@@ -50,7 +58,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <span class="me-label" id="me-label"></span>
+        <button class="me-btn" id="me-btn" title="Cambiar mi avatar"></button>
+        <button class="icon-btn" id="bell-btn" title="Notificaciones"><i class="fa-solid fa-bell-slash"></i></button>
         <button class="icon-btn" id="logout-btn" title="Cerrar sesión / cambiar usuario">
           <i class="fa-solid fa-right-from-bracket"></i>
         </button>
@@ -64,7 +73,7 @@
       <div class="welcome-banner">
         <div class="welcome-icon">🔐</div>
         <p>Chat privado entre Papá e Hija.</p>
-        <span class="security-tag">Solo ustedes dos pueden entrar.</span>
+        <span class="security-tag">Mantén apretado un mensaje para reaccionar ❤️</span>
       </div>
       <div id="messages-list" class="messages-list"></div>
     </main>
@@ -74,18 +83,38 @@
       <span id="typing-text">está escribiendo...</span>
     </div>
 
+    <div id="emoji-panel" class="emoji-panel hidden"></div>
+
     <form class="chat-input-bar" id="send-form">
       <input type="file" id="file-input" accept="image/*" class="hidden">
+      <button type="button" class="icon-btn" id="btn-games" title="Juegos">
+        <i class="fa-solid fa-gamepad"></i>
+      </button>
       <button type="button" class="icon-btn" id="btn-attach" title="Enviar foto">
         <i class="fa-solid fa-camera"></i>
       </button>
       <div class="input-wrapper">
+        <button type="button" class="emoji-toggle" id="btn-emoji" title="Emojis">😊</button>
         <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off" enterkeyhint="send" maxlength="4000">
       </div>
       <button type="submit" class="icon-btn send-btn" title="Enviar">
         <i class="fa-solid fa-paper-plane"></i>
       </button>
     </form>
+  </div>
+
+  <!-- Barra de reacciones -->
+  <div id="reaction-bar" class="reaction-bar hidden"></div>
+
+  <!-- Elegir avatar -->
+  <div id="avatar-modal" class="modal-overlay hidden">
+    <div class="modal-card avatar-card">
+      <div class="game-head">
+        <h3>Elige tu avatar</h3>
+        <button class="icon-btn" id="avatar-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="avatar-grid" class="avatar-grid"></div>
+    </div>
   </div>
 
   <!-- Visor de fotos -->

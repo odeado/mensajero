@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Pegar en: Consola Firebase → Firestore Database → Reglas → Publicar
-// Cambia los dos correos (los mismos de js/config.js).
+// Los dos usuarios deben ser los mismos de js/config.js
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,6 +23,13 @@ service cloud.firestore {
         && d.image is string && d.image.size() <= 950000;
     }
 
+    function validGame(d) {
+      return d.type == 'game'
+        && d.keys().hasOnly(['senderUid', 'type', 'game', 'gameId', 'createdAt', 'read'])
+        && d.game in ['gato', 'cuatro', 'damas', 'cachipun']
+        && d.gameId is string && d.gameId.size() <= 64;
+    }
+
     match /messages/{id} {
       allow read: if isFamily();
 
@@ -31,18 +38,40 @@ service cloud.firestore {
         && request.resource.data.senderUid == request.auth.uid
         && request.resource.data.read == false
         && request.resource.data.createdAt == request.time
-        && (validText(request.resource.data) || validImage(request.resource.data));
+        && (validText(request.resource.data)
+            || validImage(request.resource.data)
+            || validGame(request.resource.data));
 
-      // El que recibe solo puede marcar "leído"
-      allow update: if isFamily()
-        && resource.data.senderUid != request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
-        && request.resource.data.read == true;
+      allow update: if isFamily() && (
+        // El que recibe marca "leído"
+        (resource.data.senderUid != request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+          && request.resource.data.read == true)
+        ||
+        // Cada uno solo pone o quita SU reacción
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          && request.resource.data.reactions is map
+          && request.resource.data.reactions.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.reactions.get(request.auth.uid, '') is string
+          && request.resource.data.reactions.get(request.auth.uid, '').size() <= 16)
+      );
 
       allow delete: if false;
     }
 
-    // En línea / escribiendo: cada uno solo escribe su propio estado
+    // Partidas de juegos
+    match /games/{id} {
+      allow read: if isFamily();
+      allow create: if isFamily()
+        && request.resource.data.players[0] == request.auth.uid
+        && request.resource.data.type in ['gato', 'cuatro', 'damas', 'cachipun'];
+      allow update: if isFamily()
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.players[0] == resource.data.players[0];
+      allow delete: if false;
+    }
+
+    // En línea / escribiendo / avatar: cada uno solo escribe su propio estado
     match /status/{uid} {
       allow read: if isFamily();
       allow write: if isFamily() && request.auth.uid == uid;
