@@ -215,7 +215,7 @@ function stopChat() {
 
 function renderAvatars() {
   headerAvatar.textContent = partner.avatar;
-  meBtn.textContent = `${me.avatar} ${me.name}`;
+  meBtn.textContent = `Tú: ${me.avatar} ${me.name}`;
 }
 
 function subscribeMessages() {
