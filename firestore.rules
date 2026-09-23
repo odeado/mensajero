@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// Pegar en: Consola Firebase → Firestore Database → Reglas → Publicar
+// Cambia los dos correos (los mismos de js/config.js).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isFamily() {
+      return request.auth != null
+        && request.auth.token.email in ['papa@chat-familia.local', 'hija@chat-familia.local'];
+    }
+
+    function validText(d) {
+      return d.type == 'text'
+        && d.keys().hasOnly(['senderUid', 'type', 'text', 'createdAt', 'read'])
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 4000;
+    }
+
+    function validImage(d) {
+      return d.type == 'image'
+        && d.keys().hasOnly(['senderUid', 'type', 'image', 'createdAt', 'read'])
+        && d.image is string && d.image.size() <= 950000;
+    }
+
+    match /messages/{id} {
+      allow read: if isFamily();
+
+      // Solo puedes crear mensajes a tu propio nombre
+      allow create: if isFamily()
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time
+        && (validText(request.resource.data) || validImage(request.resource.data));
+
+      // El que recibe solo puede marcar "leído"
+      allow update: if isFamily()
+        && resource.data.senderUid != request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+
+      allow delete: if false;
+    }
+
+    // En línea / escribiendo: cada uno solo escribe su propio estado
+    match /status/{uid} {
+      allow read: if isFamily();
+      allow write: if isFamily() && request.auth.uid == uid;
+    }
+
+    // Todo lo demás, cerrado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

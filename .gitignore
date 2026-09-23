@@ -1,0 +1,4 @@
+_version_node_antigua/
+node_modules/
+.env
+.DS_Store
