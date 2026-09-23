@@ -4,7 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
   GAMES, newState, applyMove, isMyTurn, gatoWinLine, cuatroFindWin, C4_ROWS, C4_COLS,
-  damasLegalMoves, damasCount, RPS, RPS_TARGET
+  damasLegalMoves, damasCount, RPS, RPS_TARGET, jengaLevels, jengaCanTake, jengaZone
 } from "./games-logic.js";
 
 let ctx = null;          // { db, me(), partner(), toast, notify, sendInvite }
@@ -16,7 +16,10 @@ let busy = false;
 let wasMyTurn = null;
 let joining = false;
 
-const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks", "score", "round"];
+const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks", "score", "round", "fallen"];
+let jPick = null;        // jenga: { level, pos, center, width }
+let jAnim = null;        // requestAnimationFrame id
+let jLastAnimated = "";  // para no repetir la animación del bloque puesto
 
 // ---------- DOM ----------
 const menu = el("div", "game-overlay hidden");
@@ -94,6 +97,7 @@ export function openGame(id) {
   closeGame();
   currentId = id;
   selected = -1;
+  jengaReset();
   wasMyTurn = null;
   game = null;
   $m(".g-title").textContent = "Cargando…";
@@ -129,6 +133,7 @@ export function openGame(id) {
 
 export function closeGame() {
   unsub?.(); unsub = null;
+  jengaReset();
   currentId = null;
   modal.classList.add("hidden");
 }
@@ -200,9 +205,11 @@ function render() {
 
   // Jugadores / fichas
   const marks = {
-    gato: ["❌", "⭕"], cuatro: ["🔴", "🟡"], damas: ["⚪", "🔴"], cachipun: ["", ""]
+    gato: ["❌", "⭕"], cuatro: ["🔴", "🟡"], damas: ["⚪", "🔴"], cachipun: ["", ""], jenga: ["", ""]
   }[type];
-  if (type === "cachipun") {
+  if (type === "jenga") {
+    $m(".g-players").textContent = `Pisos: ${jengaLevels(game.board)}   ·   Bloques sacados: ${game.moves}`;
+  } else if (type === "cachipun") {
     $m(".g-players").textContent =
       `${nameOf(0)} ${game.score[0]} – ${game.score[1]} ${nameOf(1)}   ·   gana el primero a ${RPS_TARGET}`;
   } else {
@@ -215,7 +222,8 @@ function render() {
   if (game.winner === "draw") st.textContent = "🤝 ¡Empate!";
   else if (game.winner !== null && game.winner !== undefined) {
     const iWon = game.winner === pi;
-    st.textContent = iWon ? "🎉 ¡Ganaste!" : `🏆 Ganó ${ctx.partner().name}`;
+    if (type === "jenga") st.textContent = iWon ? `💥 ¡${ctx.partner().name} botó la torre! Ganaste 🎉` : "💥 ¡Se te cayó la torre!";
+    else st.textContent = iWon ? "🎉 ¡Ganaste!" : `🏆 Ganó ${ctx.partner().name}`;
     st.classList.add(iWon ? "win" : "lose");
   } else if (type === "cachipun") {
     const mine = game.picks?.[pi];
@@ -235,7 +243,7 @@ function render() {
   const board = $m(".g-board");
   board.innerHTML = "";
   board.className = `g-board g-${type}`;
-  ({ gato: renderGato, cuatro: renderCuatro, damas: renderDamas, cachipun: renderCachipun })[type](board, pi);
+  ({ gato: renderGato, cuatro: renderCuatro, damas: renderDamas, cachipun: renderCachipun, jenga: renderJenga })[type](board, pi);
 
   // Pie
   const foot = $m(".g-foot");
@@ -334,4 +342,119 @@ function renderCachipun(board, pi) {
     row.appendChild(b);
   }
   board.appendChild(row);
+}
+
+// ---------------- JENGA ----------------
+function jengaReset() {
+  if (jAnim) cancelAnimationFrame(jAnim);
+  jAnim = null;
+  jPick = null;
+}
+
+// Aleatorio "estable" por bloque para la caída (igual en ambos teléfonos)
+function rnd(seed) {
+  const x = Math.sin(seed * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+}
+
+function renderJenga(board, pi) {
+  const my = isMyTurn("jenga", game, pi);
+  const L = jengaLevels(game.board);
+  const last = game.last && typeof game.last === "object" ? game.last : null;
+  if (!my || (jPick && !jengaCanTake(game.board, jPick.level, jPick.pos))) jengaReset();
+
+  const tower = el("div", "jenga-tower");
+  if (game.fallen) tower.classList.add("fallen");
+  if (jPick) {
+    tower.classList.add("wobble");
+    tower.style.setProperty("--wob", `${(0.5 - jPick.width) * 2.2}deg`);
+  }
+  for (let l = 0; l < L; l++) {
+    const row = el("div", `jrow ${l % 2 ? "odd" : "even"}`);
+    for (let p = 0; p < 3; p++) {
+      const i = l * 3 + p;
+      const b = el("button", "jblock");
+      b.type = "button";
+      if (game.board[i] !== "1") b.classList.add("gone");
+      else {
+        const can = my && jengaCanTake(game.board, l, p);
+        if (can) b.classList.add("can");
+        else b.disabled = true;
+        if (jPick && jPick.level === l && jPick.pos === p) b.classList.add("picked");
+        if (last?.ok && last.placed === i && jLastAnimated !== `${currentId}:${game.moves}`) {
+          b.classList.add("placed");
+          jLastAnimated = `${currentId}:${game.moves}`;
+        }
+        if (game.fallen) {
+          const r1 = rnd(i + 1), r2 = rnd(i + 101), r3 = rnd(i + 201);
+          b.style.setProperty("--fx", `${(r1 - 0.5) * 2 * (40 + l * 9)}px`);
+          b.style.setProperty("--fy", `${l * 19 - r2 * 8}px`);
+          b.style.setProperty("--fr", `${(r3 - 0.5) * (60 + l * 12)}deg`);
+          b.style.transitionDelay = `${(L - l) * 25}ms`;
+        }
+        b.addEventListener("click", () => {
+          if (!jengaCanTake(game.board, l, p) || !isMyTurn("jenga", game, myIndex())) return;
+          const width = jengaZone(game.board, l, p);
+          const center = width / 2 + 0.04 + Math.random() * (1 - width - 0.08);
+          jengaReset();
+          jPick = { level: l, pos: p, width, center };
+          render();
+        });
+      }
+      row.appendChild(b);
+    }
+    tower.appendChild(row);
+  }
+  const wrap = el("div", "jenga-wrap");
+  wrap.appendChild(tower);
+  board.appendChild(wrap);
+
+  // Barra para sacar el bloque
+  const extra = $m(".g-extra");
+  if (game.winner !== null && game.winner !== undefined) return;
+  if (!my) { extra.textContent = "Mira con cuidado… 👀"; return; }
+  if (!jPick) { extra.textContent = "Toca un bloque para sacarlo (los de arriba no se pueden)"; return; }
+
+  extra.textContent = "";
+  const hint = el("div", "jenga-hint");
+  hint.textContent = jPick.width < 0.1 ? "😱 ¡Muy peligroso! Detén la aguja en lo verde" : "Detén la aguja en la zona verde";
+  const meter = el("div", "jenga-meter");
+  const zone = el("div", "jzone");
+  zone.style.left = `${(jPick.center - jPick.width / 2) * 100}%`;
+  zone.style.width = `${jPick.width * 100}%`;
+  const needle = el("div", "jneedle");
+  meter.append(zone, needle);
+  const btns = el("div", "jenga-btns");
+  const pull = el("button", "g-btn");
+  pull.type = "button";
+  pull.textContent = "✋ ¡Sacar!";
+  const cancel = el("button", "g-btn ghost");
+  cancel.type = "button";
+  cancel.textContent = "Otro bloque";
+  btns.append(cancel, pull);
+  extra.append(hint, meter, btns);
+
+  const period = Math.max(700, 1600 - game.moves * 35); // ms, cada vez más rápido
+  if (jAnim) cancelAnimationFrame(jAnim);
+  const t0 = performance.now();
+  let pos = 0;
+  const tick = (t) => {
+    pos = (1 - Math.cos(((t - t0) / period) * Math.PI * 2)) / 2;
+    needle.style.left = `${pos * 100}%`;
+    jAnim = requestAnimationFrame(tick);
+  };
+  jAnim = requestAnimationFrame(tick);
+
+  cancel.addEventListener("click", () => { jengaReset(); render(); });
+  pull.addEventListener("click", () => {
+    if (!jPick) return;
+    const pick = jPick;
+    const ok = Math.abs(pos - pick.center) <= pick.width / 2;
+    jengaReset();
+    needle.style.left = `${pos * 100}%`;
+    meter.classList.add(ok ? "hit" : "miss");
+    pull.disabled = cancel.disabled = true;
+    hint.textContent = ok ? "¡Bien! 😮‍💨" : "¡Uy! 😱";
+    setTimeout(() => play({ level: pick.level, pos: pick.pos, ok }), 450);
+  });
 }

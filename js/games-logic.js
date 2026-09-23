@@ -5,7 +5,8 @@ export const GAMES = {
   gato:     { name: "Gato",        icon: "❌", desc: "Tres en línea" },
   cuatro:   { name: "4 en línea",  icon: "🔴", desc: "Junta 4 fichas" },
   damas:    { name: "Damas",       icon: "👑", desc: "Come todas las fichas" },
-  cachipun: { name: "Cachipún",    icon: "✊", desc: "Piedra, papel o tijera (a 3)" }
+  cachipun: { name: "Cachipún",    icon: "✊", desc: "Piedra, papel o tijera (a 3)" },
+  jenga:    { name: "Jenga",       icon: "🧱", desc: "Saca bloques sin botar la torre" }
 };
 
 export function newState(type) {
@@ -15,6 +16,7 @@ export function newState(type) {
     case "cuatro": return { ...base, board: ".".repeat(42) };
     case "damas": return { ...base, board: damasInitial(), chain: -1 };
     case "cachipun": return { ...base, picks: {}, score: [0, 0], round: 1 };
+    case "jenga": return { ...base, board: "111".repeat(JENGA_LEVELS), fallen: false };
   }
   throw new Error("Juego desconocido");
 }
@@ -208,6 +210,63 @@ export function cachipunPick(st, player, choice) {
   };
 }
 
+// ---------------- JENGA ----------------
+// Torre: string con 3 caracteres por piso ("1" = hay bloque), piso 0 = abajo.
+// El piso de más arriba se va llenando con los bloques que se sacan.
+// No se puede sacar del piso de arriba (ni del de abajo de él si el de arriba está incompleto).
+// Cada piso debe quedar con al menos 1 bloque.
+export const JENGA_LEVELS = 12;
+
+export function jengaLevels(board) { return board.length / 3; }
+
+function jengaTopCount(board) {
+  const L = jengaLevels(board);
+  return [...board.slice((L - 1) * 3)].filter((c) => c === "1").length;
+}
+
+export function jengaCanTake(board, level, pos) {
+  const L = jengaLevels(board);
+  if (level < 0 || level >= L || pos < 0 || pos > 2) return false;
+  const topFull = jengaTopCount(board) === 3;
+  const lastAllowed = topFull ? L - 2 : L - 3;
+  if (level > lastAllowed) return false;
+  const row = board.slice(level * 3, level * 3 + 3);
+  if (row[pos] !== "1") return false;
+  return [...row].filter((c) => c === "1").length >= 2;
+}
+
+// Ancho de la zona verde (0..1): más chico = más difícil
+export function jengaZone(board, level, pos) {
+  const row = board.slice(level * 3, level * 3 + 3).split("");
+  row[pos] = "0";
+  const left = row.filter((c) => c === "1").length;
+  let w;
+  if (left === 2) w = pos === 1 ? 0.34 : 0.4;            // queda firme
+  else if (row[1] === "1") w = 0.2;                     // queda solo el del medio: se sostiene
+  else w = 0.07;                                        // queda solo un lado: ¡muy peligroso!
+  const L = jengaLevels(board);
+  w *= Math.max(0.45, 1 - (L - JENGA_LEVELS) * 0.06);   // torre más alta = más difícil
+  if (level < 3) w *= 0.85;                             // abajo carga más peso
+  return Math.max(0.05, Math.min(0.45, w));
+}
+
+export function jengaMove(st, player, move) {
+  if (st.winner !== null || st.turn !== player) return null;
+  const { level, pos, ok } = move;
+  if (!jengaCanTake(st.board, level, pos)) return null;
+  if (!ok) {
+    return { ...st, fallen: true, winner: 1 - player, moves: st.moves + 1, last: { level, pos, ok: false } };
+  }
+  let board = setAt(st.board, level * 3 + pos, "0");
+  // Poner el bloque arriba
+  const L = jengaLevels(board);
+  const topCount = [...board.slice((L - 1) * 3)].filter((c) => c === "1").length;
+  let placed;
+  if (topCount === 3) { board += "100"; placed = L * 3; }
+  else { placed = (L - 1) * 3 + topCount; board = setAt(board, placed, "1"); }
+  return { ...st, board, turn: 1 - player, moves: st.moves + 1, last: { level, pos, ok: true, placed } };
+}
+
 // Turno "lógico" para mostrar/avisar
 export function isMyTurn(type, st, player) {
   if (st.winner !== null) return false;
@@ -221,6 +280,7 @@ export function applyMove(type, st, player, move) {
     case "cuatro": return cuatroMove(st, player, move.col);
     case "damas": return damasMove(st, player, move.from, move.to);
     case "cachipun": return cachipunPick(st, player, move.choice);
+    case "jenga": return jengaMove(st, player, move);
   }
   return null;
 }

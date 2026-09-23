@@ -27,7 +27,7 @@ URL: `https://odeado.github.io/mensajero/`
 - 😊 Selector de emojis · emojis solos se ven grandes (stickers).
 - ❤️ Reacciones: mantener apretado (o doble clic) un mensaje.
 - 🦄 Avatar: tocar tu nombre arriba a la derecha.
-- 🎮 Juegos en tiempo real: Gato, 4 en línea, Damas y Cachipún (botón 🎮 junto a la cámara).
+- 🎮 Juegos en tiempo real: Gato, 4 en línea, Damas, Cachipún y Jenga (botón 🎮 junto a la cámara).
 - 🔔 Notificaciones: tocar la campana. Llegan mientras la app está abierta o en segundo plano.
   En iPhone solo funcionan si la app se agregó a la pantalla de inicio.
 - 📲 Instalable como app (ícono propio).

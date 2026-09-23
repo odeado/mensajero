@@ -26,7 +26,7 @@ service cloud.firestore {
     function validGame(d) {
       return d.type == 'game'
         && d.keys().hasOnly(['senderUid', 'type', 'game', 'gameId', 'createdAt', 'read'])
-        && d.game in ['gato', 'cuatro', 'damas', 'cachipun']
+        && d.game in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga']
         && d.gameId is string && d.gameId.size() <= 64;
     }
 
@@ -64,7 +64,7 @@ service cloud.firestore {
       allow read: if isFamily();
       allow create: if isFamily()
         && request.resource.data.players[0] == request.auth.uid
-        && request.resource.data.type in ['gato', 'cuatro', 'damas', 'cachipun'];
+        && request.resource.data.type in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga'];
       allow update: if isFamily()
         && request.resource.data.type == resource.data.type
         && request.resource.data.players[0] == resource.data.players[0];
