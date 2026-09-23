@@ -69,6 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize Chat Logic
   function initChat(username) {
+    // Siempre ocultar el modal de perfil (aunque venga de localStorage)
+    profileModal.classList.add('hidden');
     chatApp.classList.remove('hidden');
 
     const partner = username === 'Papá' ? 'Hija' : 'Papá';

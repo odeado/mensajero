@@ -102,7 +102,12 @@ io.on('connection', (socket) => {
         console.error('Error al obtener mensajes:', err.message);
         return;
       }
-      socket.emit('message_history', rows);
+      // Convertir timestamp de SQLite a formato ISO 8601 para compatibilidad con el browser
+      const fixedRows = rows.map(row => ({
+        ...row,
+        timestamp: row.timestamp ? row.timestamp.replace(' ', 'T') + 'Z' : new Date().toISOString()
+      }));
+      socket.emit('message_history', fixedRows);
     });
   });
 
