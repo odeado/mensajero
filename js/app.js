@@ -12,7 +12,7 @@ import { AVATARS, REACTIONS, emojiOnlyCount, createEmojiPicker, insertAtCursor }
 import { registerSW, notify, notifState, toggleNotifications, pop } from "./notify.js";
 import { initGames, openGamesMenu, openGame } from "./games.js";
 import { GAMES } from "./games-logic.js";
-import { playMsnCard } from "./msncard.js";
+import { playMsnCard } from "./msncard.js?v=msncard-alpha-20261025-r2";
 import { openCardGallery } from "./card-gallery.js";
 
 // ---------- Firebase ----------
