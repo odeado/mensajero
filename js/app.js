@@ -12,6 +12,7 @@ import { AVATARS, REACTIONS, emojiOnlyCount, createEmojiPicker, insertAtCursor }
 import { registerSW, notify, notifState, toggleNotifications, pop } from "./notify.js";
 import { initGames, openGamesMenu, openGame } from "./games.js";
 import { GAMES } from "./games-logic.js";
+import { playMsnCard } from "./msncard.js";
 
 // ---------- Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -61,6 +62,7 @@ const input = $("message-input");
 const btnAttach = $("btn-attach");
 const btnEmoji = $("btn-emoji");
 const btnGames = $("btn-games");
+const btnDemoCard = $("btn-demo-card");
 const emojiPanel = $("emoji-panel");
 const fileInput = $("file-input");
 const lightbox = $("lightbox-modal");
@@ -365,7 +367,13 @@ function subscribeMessages() {
 
 // Mensaje nuevo del otro: sonido / notificación / contador en la pestaña
 function incoming(m) {
+  if (m.type === "msncard" && m.card) {
+    // Si llega una tarjeta interactiva, ¡se abre sola en pantalla automáticamente!
+    playMsnCard(m.card, true);
+  }
+
   const body = m.type === "image" ? "📷 Foto"
+    : m.type === "msncard" ? `🎁 ${m.card?.titulo || "Te envió una presentación"}`
     : m.type === "game" ? `🎮 Te invitó a jugar ${GAMES[m.game]?.name || ""}`
     : String(m.text || "");
   if (document.visibilityState === "visible") {
@@ -492,6 +500,42 @@ initGames({
   notify,
   sendInvite: (game, gameId) => sendMessage({ type: "game", game, gameId })
 });
+// Botón de demostración de presentación Flash (.msncard)
+if (btnDemoCard) {
+  btnDemoCard.addEventListener("click", () => {
+    const demoCard = {
+      version: 1,
+      titulo: "¡Sorpresa para ti! ✨",
+      modo: "fullscreen",
+      efecto: "corazones", // "corazones", "confetti" o "estrellas"
+      escenas: [
+        {
+          animacion: "zoom-in",
+          texto: "¡Hola! ❤️",
+          color: "#ff69b4",
+          tamano: 32,
+          duracion: 3
+        },
+        {
+          animacion: "flotar",
+          texto: "Te preparé esta sorpresa especial ✨",
+          color: "#ffd54f",
+          tamano: 26,
+          duracion: 3.5
+        },
+        {
+          animacion: "latido",
+          texto: "¡Eres lo más importante para mí! 💖",
+          color: "#ffffff",
+          tamano: 30,
+          duracion: 4
+        }
+      ]
+    };
+    sendMessage({ type: "msncard", card: demoCard });
+    playMsnCard(demoCard);
+  });
+}
 btnGames.addEventListener("click", () => openGamesMenu());
 
 // ---------- Enlaces dentro de los mensajes ----------
@@ -570,6 +614,19 @@ function buildBubble(id, m, pending) {
     img.addEventListener("load", () => { if (isNearBottom(400)) scrollToBottom(); });
     wrap.addEventListener("click", () => { if (!el._longPressed) openLightbox(m.image); });
     wrap.appendChild(img);
+    el.appendChild(wrap);
+  } else if (m.type === "msncard" && m.card) {
+    el.classList.add("card-bubble");
+    const wrap = document.createElement("div");
+    wrap.className = "msncard-bubble";
+    const icon = document.createElement("div");
+    icon.className = "msncard-bubble-icon";
+    icon.textContent = "🎁";
+    const info = document.createElement("div");
+    info.className = "msncard-bubble-info";
+    info.innerHTML = `<strong>${escapeHTML(m.card.titulo || "Tarjeta interactiva")}</strong><small>Toca para ver presentación</small>`;
+    wrap.append(icon, info);
+    wrap.addEventListener("click", () => playMsnCard(m.card));
     el.appendChild(wrap);
   } else if (m.type === "game" && GAMES[m.game]) {
     const g = GAMES[m.game];
