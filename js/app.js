@@ -40,9 +40,8 @@ const loginScreen = $("login-screen");
 const loginForm = $("login-form");
 const loginError = $("login-error");
 const loginBtn = $("login-btn");
-const loginEmail = $("login-email");
+const loginUser = $("login-user");
 const loginPass = $("login-pass");
-const profilesGrid = $("profiles-grid");
 const chatApp = $("chat-app");
 const headerAvatar = $("header-avatar");
 const partnerNameEl = $("chat-partner-name");
@@ -783,11 +782,21 @@ function subscribeStatus() {
   unsubStatus?.();
   unsubStatus = onSnapshot(collection(db, "status"), (snap) => {
     const mine = snap.docs.find((d) => d.id === me.uid)?.data();
-    // Encontrar el estado del partner actual (por su email o por exclusión)
-    const other = snap.docs.find((d) => {
-      const data = d.data();
-      return (data.email && data.email === partner.email) || (!data.email && d.id !== me.uid);
-    });
+    
+    // Buscar el estado del partner actual:
+    // 1) Por coincidencia de email (si ya guardó con email)
+    // 2) O por exclusión: si solo hay dos estados (el mío y otro más antiguo que aún no tenía el campo email)
+    let other = snap.docs.find((d) => d.data().email === partner.email);
+    if (!other) {
+      const candidates = snap.docs.filter((d) => d.id !== me.uid);
+      // Si solo hay un candidato distinto a mí, es el partner
+      if (candidates.length === 1) {
+        other = candidates[0];
+      } else {
+        // Si hay varios candidatos sin email, tomamos el que no tenga email asignado a otra cuenta
+        other = candidates.find((d) => !d.data().email || d.data().email === partner.email);
+      }
+    }
     partnerStatus = other ? other.data({ serverTimestamps: "estimate" }) : null;
 
     if (mine?.avatar && mine.avatar !== me.avatar) { me.avatar = mine.avatar; cacheAvatar(me.email, mine.avatar); }

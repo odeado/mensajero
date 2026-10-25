@@ -34,13 +34,12 @@
       <div class="app-brand">
         <div class="brand-icon">💬</div>
         <h2>Bienvenido</h2>
-        <p id="login-hint">¿Quién eres?</p>
+        <p id="login-hint">Ingresa tu usuario y clave</p>
       </div>
-      <div class="profiles-grid" id="profiles-grid"></div>
-      <input type="hidden" id="login-email" autocomplete="username">
-      <input class="login-input hidden" type="password" id="login-pass" placeholder="Clave" autocomplete="current-password" required>
+      <input class="login-input" type="text" id="login-user" placeholder="Usuario (ej. Papá, Hija...)" autocomplete="username" autocapitalize="none" required autofocus>
+      <input class="login-input" type="password" id="login-pass" placeholder="Clave" autocomplete="current-password" required>
       <p id="login-error" class="login-error hidden"></p>
-      <button type="submit" class="login-btn hidden" id="login-btn">Entrar</button>
+      <button type="submit" class="login-btn" id="login-btn">Entrar</button>
     </form>
   </div>
 
