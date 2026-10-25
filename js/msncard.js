@@ -9,6 +9,11 @@ export function playMsnCard(cardData, isAuto = false) {
   overlay.id = "msncard-player";
   overlay.className = "msncard-overlay";
 
+  // Modo sin fondo: la figura flota sobre el chat sin overlay oscuro
+  if (cardData.fondo === "transparente") {
+    overlay.classList.add("msncard-sin-fondo");
+  }
+
   const closeBtn = document.createElement("button");
   closeBtn.className = "msncard-close";
   closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';

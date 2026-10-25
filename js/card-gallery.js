@@ -322,6 +322,7 @@ function buildTemplates() {
         titulo: "¡Para ti! ❤️",
         modo: "fullscreen",
         efecto: "corazones",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "zoom-in",
@@ -359,6 +360,7 @@ function buildTemplates() {
         titulo: "¡Eres una estrella! ⭐",
         modo: "fullscreen",
         efecto: "estrellas",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "zoom-in",
@@ -388,6 +390,7 @@ function buildTemplates() {
         titulo: "Buenas noches 🌙",
         modo: "fullscreen",
         efecto: "estrellas",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "flotar",
@@ -425,6 +428,7 @@ function buildTemplates() {
         titulo: "Una rosa para ti 🌹",
         modo: "fullscreen",
         efecto: "corazones",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "zoom-in",
@@ -454,6 +458,7 @@ function buildTemplates() {
         titulo: "¡Eres un diamante! 💎",
         modo: "fullscreen",
         efecto: "estrellas",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "zoom-in",
@@ -483,6 +488,7 @@ function buildTemplates() {
         titulo: "¡Feliz día! 🎉",
         modo: "fullscreen",
         efecto: "confetti",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "zoom-in",
@@ -512,6 +518,7 @@ function buildTemplates() {
         titulo: "Un besito 💋",
         modo: "fullscreen",
         efecto: "corazones",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "latido",
@@ -541,6 +548,7 @@ function buildTemplates() {
         titulo: "¡Muchos abrazos! 🤗",
         modo: "fullscreen",
         efecto: "corazones",
+        fondo: "transparente",
         escenas: [
           {
             animacion: "zoom-in",
