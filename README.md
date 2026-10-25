@@ -24,6 +24,7 @@ URL: `https://odeado.github.io/mensajero/`
 - En el teléfono: menú del navegador → *Agregar a pantalla de inicio* para usarlo como app.
 
 ## Funciones
+- 🔗 Los enlaces se vuelven clicables solos (`https://…`, `www.…` o `youtube.com/…`); en el APK se abren en el navegador sin salir del chat.
 - 😊 Selector de emojis · emojis solos se ven grandes (stickers).
 - ❤️ Reacciones: mantener apretado (o doble clic) un mensaje.
 - 🦄 Avatar: tocar tu nombre arriba a la derecha.
@@ -35,4 +36,4 @@ URL: `https://odeado.github.io/mensajero/`
 ## Seguridad
 - La `apiKey` de Firebase es pública por diseño; la protección real está en `firestore.rules`.
 - Nadie puede crear mensajes a nombre del otro ni borrar mensajes.
-- Los mensajes se muestran con `textContent` (sin riesgo de inyección de código).
+- Los mensajes se muestran con nodos de texto y enlaces creados con el DOM (sin `innerHTML` con datos del usuario), así que no hay riesgo de inyección de código.

@@ -377,6 +377,64 @@ initGames({
 });
 btnGames.addEventListener("click", () => openGamesMenu());
 
+// ---------- Enlaces dentro de los mensajes ----------
+// Se enlazan solos: "https://…", "www.…" y dominios conocidos sin http://.
+// Se construye con nodos del DOM (nunca innerHTML) para que el texto siga siendo seguro.
+const LINK_TLDS = "com|net|org|edu|gov|mil|gob|info|biz|cl|ar|mx|pe|co|br|uy|py|bo|ec|ve|es|us|uk|ca|fr|de|it|pt|nl|au|nz|jp|cn|in|ai|io|app|dev|me|tv|cc|xyz|online|site|store|shop|blog|link|ly|gl|be|to|fm|gg|so|sh|ws|page|cloud|tech|news|live|pro|name|mobi|club|top|vip|fit|one|run|fun|wiki|today|world|email|download|stream|icu";
+const URL_RE = new RegExp(
+  '(?:https?:\\/\\/|www\\.)[^\\s<>"\']+'
+  + '|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:' + LINK_TLDS + ')(?::\\d+)?(?:[\\/?#][^\\s<>"\']*)?',
+  "gi"
+);
+
+// Quita del final la puntuación que pertenece a la frase, no a la URL ("mira https://x.cl.").
+function trimUrlEnd(url) {
+  let out = url;
+  for (;;) {
+    const ch = out.slice(-1);
+    if (!ch) return out;
+    if (",.;:!?…\"'»”’".includes(ch)) { out = out.slice(0, -1); continue; }
+    if (ch === ")" && (out.split(")").length - 1) > (out.split("(").length - 1)) { out = out.slice(0, -1); continue; }
+    if (ch === "]" && (out.split("]").length - 1) > (out.split("[").length - 1)) { out = out.slice(0, -1); continue; }
+    return out;
+  }
+}
+
+function hrefFor(url) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function appendLinkedText(parent, text) {
+  const frag = document.createDocumentFragment();
+  let from = 0;
+  URL_RE.lastIndex = 0;
+  let m;
+  while ((m = URL_RE.exec(text))) {
+    const prev = m.index > 0 ? text[m.index - 1] : "";
+    // No enlazar la parte de un correo (ej. "alguien@gmail.com") ni algo pegado a otra palabra.
+    if (prev && (prev === "@" || prev === "." || prev === "-" || prev === "/" || /[a-z0-9_]/i.test(prev))) {
+      URL_RE.lastIndex = m.index + m[0].length;
+      continue;
+    }
+    const url = trimUrlEnd(m[0]);
+    if (!url) { URL_RE.lastIndex = m.index + m[0].length; continue; }
+    if (m.index > from) frag.appendChild(document.createTextNode(text.slice(from, m.index)));
+    const a = document.createElement("a");
+    a.className = "msg-link";
+    a.href = hrefFor(url);
+    a.textContent = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.addEventListener("click", (e) => e.stopPropagation());
+    frag.appendChild(a);
+    from = m.index + url.length;
+    URL_RE.lastIndex = from;
+  }
+  if (from < text.length) frag.appendChild(document.createTextNode(text.slice(from)));
+  parent.appendChild(frag);
+  return frag;
+}
+
 // ---------- Burbujas (sin innerHTML con datos del usuario) ----------
 function buildBubble(id, m, pending) {
   const isMine = m.senderUid === me.uid;
@@ -411,7 +469,7 @@ function buildBubble(id, m, pending) {
     const text = String(m.text ?? "");
     const t = document.createElement("div");
     t.className = "msg-content";
-    t.textContent = text;
+    appendLinkedText(t, text);
     const n = emojiOnlyCount(text);
     if (n > 0 && n <= 3) {
       el.classList.add("big-emoji");
@@ -485,6 +543,7 @@ function attachReactionGestures(el) {
   let timer = null, sx = 0, sy = 0;
   const start = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest?.("a")) return; // tocar un enlace no debe abrir las reacciones
     el._longPressed = false;
     sx = e.clientX; sy = e.clientY;
     clearTimeout(timer);
@@ -499,8 +558,14 @@ function attachReactionGestures(el) {
   el.addEventListener("pointermove", (e) => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel(); });
   el.addEventListener("pointerup", cancel);
   el.addEventListener("pointercancel", cancel);
-  el.addEventListener("contextmenu", (e) => { e.preventDefault(); showReactionBar(el); });
-  el.addEventListener("dblclick", (e) => { e.preventDefault(); window.getSelection()?.removeAllRanges(); showReactionBar(el); });
+  el.addEventListener("contextmenu", (e) => {
+    if (e.target.closest?.("a")) return; // deja "copiar dirección del enlace"
+    e.preventDefault(); showReactionBar(el);
+  });
+  el.addEventListener("dblclick", (e) => {
+    if (e.target.closest?.("a")) return;
+    e.preventDefault(); window.getSelection()?.removeAllRanges(); showReactionBar(el);
+  });
 }
 
 function showReactionBar(el) {

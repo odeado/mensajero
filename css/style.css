@@ -345,6 +345,22 @@ body {
   white-space: pre-wrap;
 }
 
+/* Enlaces dentro de los mensajes */
+.msg-content a.msg-link {
+  color: #53bdeb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.message-bubble.sent .msg-content a.msg-link {
+  color: #9fe6ff;
+}
+
+.msg-content a.msg-link:active {
+  opacity: 0.7;
+}
+
 .msg-meta {
   display: flex;
   align-items: center;
