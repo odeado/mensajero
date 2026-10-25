@@ -62,8 +62,17 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  animation-duration: 0.8s;
+  animation-duration: 0.7s;
   animation-fill-mode: both;
+}
+
+/* Fade-out al cambiar de escena */
+.msncard-scene.fade-out {
+  animation: cardFadeOut 0.35s ease-in forwards !important;
+}
+@keyframes cardFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.92); }
 }
 
 .msncard-img {
@@ -86,6 +95,28 @@
   font-weight: 700;
   color: #ffd54f;
   margin-bottom: 20px;
+}
+
+/* Indicador de progreso (puntitos) */
+.msncard-dots {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+.msncard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.3s, transform 0.3s;
+}
+.msncard-dot.active {
+  background: #ff69b4;
+  transform: scale(1.4);
 }
 
 /* Animaciones de escenas */
@@ -115,6 +146,21 @@
 }
 
 /* Burbuja especial en el chat para .msncard */
+.message-bubble.card-bubble {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 2px !important;
+  max-width: 320px;
+}
+.message-bubble.card-bubble .msg-meta {
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 8px;
+  border-radius: 10px;
+  width: fit-content;
+  align-self: flex-end;
+}
 .msncard-bubble {
   background: linear-gradient(135deg, #4a154b, #2b0938);
   border: 1px solid rgba(255, 105, 180, 0.3);

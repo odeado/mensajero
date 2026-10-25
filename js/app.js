@@ -63,6 +63,8 @@ const btnAttach = $("btn-attach");
 const btnEmoji = $("btn-emoji");
 const btnGames = $("btn-games");
 const btnDemoCard = $("btn-demo-card");
+const btnSendCard = $("btn-send-card");
+const cardFileInput = $("card-file-input");
 const emojiPanel = $("emoji-panel");
 const fileInput = $("file-input");
 const lightbox = $("lightbox-modal");
@@ -536,6 +538,38 @@ if (btnDemoCard) {
     playMsnCard(demoCard);
   });
 }
+
+// Botón para cargar y enviar un archivo .msncard o .json creado externamente
+if (btnSendCard && cardFileInput) {
+  btnSendCard.addEventListener("click", () => cardFileInput.click());
+  cardFileInput.addEventListener("change", async () => {
+    const file = cardFileInput.files[0];
+    cardFileInput.value = "";
+    if (!file || !me) return;
+
+    if (file.size > 800_000) {
+      toast("El archivo es muy grande (máx 800 KB para Firestore). Optimiza las imágenes.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const cardData = JSON.parse(text);
+
+      if (!cardData || typeof cardData !== "object" || !Array.isArray(cardData.escenas) || cardData.escenas.length === 0) {
+        toast("El archivo no es una presentación .msncard válida.");
+        return;
+      }
+
+      toast("¡Presentación enviada! 🎁");
+      sendMessage({ type: "msncard", card: cardData });
+      playMsnCard(cardData);
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo leer el archivo. Asegúrate que sea un .msncard o JSON válido.");
+    }
+  });
+}
 btnGames.addEventListener("click", () => openGamesMenu());
 
 // ---------- Enlaces dentro de los mensajes ----------
@@ -624,7 +658,11 @@ function buildBubble(id, m, pending) {
     icon.textContent = "🎁";
     const info = document.createElement("div");
     info.className = "msncard-bubble-info";
-    info.innerHTML = `<strong>${escapeHTML(m.card.titulo || "Tarjeta interactiva")}</strong><small>Toca para ver presentación</small>`;
+    const strong = document.createElement("strong");
+    strong.textContent = m.card.titulo || "Tarjeta interactiva";
+    const small = document.createElement("small");
+    small.textContent = "Toca para ver presentación";
+    info.append(strong, small);
     wrap.append(icon, info);
     wrap.addEventListener("click", () => playMsnCard(m.card));
     el.appendChild(wrap);

@@ -35,9 +35,24 @@ export function playMsnCard(cardData, isAuto = false) {
   const escenas = Array.isArray(cardData.escenas) ? cardData.escenas : [];
   let currentIdx = 0;
 
+  // Indicador de progreso (puntitos abajo)
+  const dotsBar = document.createElement("div");
+  dotsBar.className = "msncard-dots";
+  overlay.appendChild(dotsBar);
+
+  function renderDots(active) {
+    dotsBar.innerHTML = "";
+    escenas.forEach((_, i) => {
+      const dot = document.createElement("span");
+      dot.className = "msncard-dot" + (i === active ? " active" : "");
+      dotsBar.appendChild(dot);
+    });
+  }
+
   function showScene(idx) {
     if (idx >= escenas.length) {
       // Fin de la presentación: mostrar botón para repetir
+      dotsBar.innerHTML = "";
       contentBox.innerHTML = `
         <div class="msncard-scene end-scene">
           <div class="msncard-title">${escapeHtml(cardData.titulo || "Fin ✨")}</div>
@@ -49,7 +64,21 @@ export function playMsnCard(cardData, isAuto = false) {
       return;
     }
 
+    renderDots(idx);
+
     const esc = escenas[idx];
+
+    // Fade-out del contenido anterior antes de cambiar
+    const oldScene = contentBox.querySelector(".msncard-scene");
+    if (oldScene) {
+      oldScene.classList.add("fade-out");
+      setTimeout(() => buildScene(esc, idx), 350);
+    } else {
+      buildScene(esc, idx);
+    }
+  }
+
+  function buildScene(esc, idx) {
     contentBox.innerHTML = "";
 
     const sceneEl = document.createElement("div");
@@ -100,23 +129,29 @@ function startParticles(canvas, tipo) {
     : tipo === "estrellas" ? ["⭐", "✨", "🌟", "💫"]
     : ["❤️", "💖", "💕", "🌸", "✨"];
 
+  // Velocidades en píxeles/segundo (normalizado a 60fps de base)
   const particles = Array.from({ length: 28 }, () => ({
     x: Math.random() * w,
     y: Math.random() * h,
     size: 16 + Math.random() * 22,
-    speedY: 1 + Math.random() * 2.5,
-    speedX: (Math.random() - 0.5) * 1.5,
+    speedY: (55 + Math.random() * 90),   // px/s  (≈1-2.5 px/frame @60fps)
+    speedX: (Math.random() - 0.5) * 60,  // px/s
     rot: Math.random() * 360,
-    rotSpeed: (Math.random() - 0.5) * 4,
+    rotSpeed: (Math.random() - 0.5) * 120, // grados/s
     char: icons[Math.floor(Math.random() * icons.length)]
   }));
 
-  function loop() {
+  let lastTime = performance.now();
+
+  function loop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.1); // segundos, máx 100ms
+    lastTime = now;
+
     ctx.clearRect(0, 0, w, h);
     particles.forEach((p) => {
-      p.y += p.speedY;
-      p.x += p.speedX;
-      p.rot += p.rotSpeed;
+      p.y += p.speedY * dt;
+      p.x += p.speedX * dt;
+      p.rot += p.rotSpeed * dt;
       if (p.y > h + 30) {
         p.y = -20;
         p.x = Math.random() * w;
@@ -132,7 +167,7 @@ function startParticles(canvas, tipo) {
     });
     animFrameId = requestAnimationFrame(loop);
   }
-  loop();
+  animFrameId = requestAnimationFrame(loop);
 }
 
 // Genera un tono musical suave con Web Audio API (sin descargar archivos de audio)
