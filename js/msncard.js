@@ -28,8 +28,35 @@ export function playMsnCard(cardData, isAuto = false) {
   // Iniciar animación de partículas de fondo
   startParticles(particlesCanvas, cardData.efecto || "corazones");
 
-  // Reproducir sonido si incluye audio sintético o base64
-  playCardSound(cardData.efecto);
+  // Reproducir sonido si incluye audio sintético o base64 (solo si no es un video con su propio audio)
+  if (!cardData.video) {
+    playCardSound(cardData.efecto);
+  }
+
+  // Si la tarjeta contiene un video renderizado (exportado desde el editor de video)
+  if (cardData.video) {
+    contentBox.innerHTML = `
+      <div class="msncard-scene anim-zoom-in msncard-video-wrap">
+        <div class="msncard-title" style="margin-bottom:14px;">${escapeHtml(cardData.titulo || "¡Presentación para ti! ✨")}</div>
+        <video class="msncard-video" src="${cardData.video}" autoplay playsinline controls></video>
+      </div>
+    `;
+    const vid = contentBox.querySelector("video");
+    if (vid) {
+      vid.onended = () => {
+        contentBox.innerHTML = `
+          <div class="msncard-scene end-scene">
+            <div class="msncard-title">${escapeHtml(cardData.titulo || "Fin ✨")}</div>
+            <button type="button" class="g-btn" id="msncard-replay"><i class="fa-solid fa-rotate-right"></i> Ver de nuevo</button>
+          </div>
+        `;
+        const rep = contentBox.querySelector("#msncard-replay");
+        if (rep) rep.onclick = () => playMsnCard(cardData);
+      };
+      vid.play().catch(() => {});
+    }
+    return;
+  }
 
   // Escenas secuenciales
   const escenas = Array.isArray(cardData.escenas) ? cardData.escenas : [];

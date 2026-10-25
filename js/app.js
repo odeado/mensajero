@@ -509,8 +509,8 @@ if (btnSendCard && cardFileInput) {
     cardFileInput.value = "";
     if (!file || !me) return;
 
-    if (file.size > 800_000) {
-      toast("El archivo es muy grande (máx 800 KB para Firestore). Optimiza las imágenes.");
+    if (file.size > 950_000) {
+      toast("El archivo supera el límite de Firebase (~950 KB). Reduce la duración o resolución.");
       return;
     }
 
@@ -518,8 +518,8 @@ if (btnSendCard && cardFileInput) {
       const text = await file.text();
       const cardData = JSON.parse(text);
 
-      if (!cardData || typeof cardData !== "object" || !Array.isArray(cardData.escenas) || cardData.escenas.length === 0) {
-        toast("El archivo no es una presentación .msncard válida.");
+      if (!cardData || typeof cardData !== "object" || (!cardData.video && (!Array.isArray(cardData.escenas) || cardData.escenas.length === 0))) {
+        toast("El archivo no es una presentación o video .msncard válido.");
         return;
       }
 
