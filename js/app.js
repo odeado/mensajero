@@ -62,7 +62,6 @@ const input = $("message-input");
 const btnAttach = $("btn-attach");
 const btnEmoji = $("btn-emoji");
 const btnGames = $("btn-games");
-const btnDemoCard = $("btn-demo-card");
 const btnSendCard = $("btn-send-card");
 const cardFileInput = $("card-file-input");
 const emojiPanel = $("emoji-panel");
@@ -502,43 +501,6 @@ initGames({
   notify,
   sendInvite: (game, gameId) => sendMessage({ type: "game", game, gameId })
 });
-// Botón de demostración de presentación Flash (.msncard)
-if (btnDemoCard) {
-  btnDemoCard.addEventListener("click", () => {
-    const demoCard = {
-      version: 1,
-      titulo: "¡Sorpresa para ti! ✨",
-      modo: "fullscreen",
-      efecto: "corazones", // "corazones", "confetti" o "estrellas"
-      escenas: [
-        {
-          animacion: "zoom-in",
-          texto: "¡Hola! ❤️",
-          color: "#ff69b4",
-          tamano: 32,
-          duracion: 3
-        },
-        {
-          animacion: "flotar",
-          texto: "Te preparé esta sorpresa especial ✨",
-          color: "#ffd54f",
-          tamano: 26,
-          duracion: 3.5
-        },
-        {
-          animacion: "latido",
-          texto: "¡Eres lo más importante para mí! 💖",
-          color: "#ffffff",
-          tamano: 30,
-          duracion: 4
-        }
-      ]
-    };
-    sendMessage({ type: "msncard", card: demoCard });
-    playMsnCard(demoCard);
-  });
-}
-
 // Botón para cargar y enviar un archivo .msncard o .json creado externamente
 if (btnSendCard && cardFileInput) {
   btnSendCard.addEventListener("click", () => cardFileInput.click());
