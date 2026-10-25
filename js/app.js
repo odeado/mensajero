@@ -13,6 +13,7 @@ import { registerSW, notify, notifState, toggleNotifications, pop } from "./noti
 import { initGames, openGamesMenu, openGame } from "./games.js";
 import { GAMES } from "./games-logic.js";
 import { playMsnCard } from "./msncard.js";
+import { openCardGallery } from "./card-gallery.js";
 
 // ---------- Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -501,9 +502,21 @@ initGames({
   notify,
   sendInvite: (game, gameId) => sendMessage({ type: "game", game, gameId })
 });
-// Botón para cargar y enviar un archivo .msncard o .json creado externamente
-if (btnSendCard && cardFileInput) {
-  btnSendCard.addEventListener("click", () => cardFileInput.click());
+// Botón 🎁 — abre la galería de tarjetas animadas
+if (btnSendCard) {
+  btnSendCard.addEventListener("click", () => {
+    openCardGallery({
+      onSend: (cardData) => {
+        sendMessage({ type: "msncard", card: cardData });
+        playMsnCard(cardData);
+        toast("¡Presentación enviada! 🎁");
+      }
+    });
+  });
+}
+
+// Input oculto para cargar archivo .msncard desde disco (usado por "Cargar desde archivo" en la galería)
+if (cardFileInput) {
   cardFileInput.addEventListener("change", async () => {
     const file = cardFileInput.files[0];
     cardFileInput.value = "";
