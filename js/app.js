@@ -109,29 +109,14 @@ function cacheAvatar(email, a) {
 }
 
 // ---------- Login ----------
-function renderProfiles() {
-  profilesGrid.innerHTML = "";
-  Object.entries(FAMILY).forEach(([email, p]) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "profile-btn";
-    const av = document.createElement("div");
-    av.className = "avatar";
-    av.textContent = cachedAvatar(email);
-    const name = document.createElement("span");
-    name.textContent = p.name;
-    b.append(av, name);
-    b.addEventListener("click", () => {
-      profilesGrid.querySelectorAll(".profile-btn").forEach((x) => x.classList.remove("selected"));
-      b.classList.add("selected");
-      loginEmail.value = email;
-      $("login-hint").textContent = `Hola ${p.name}, escribe tu clave`;
-      loginPass.classList.remove("hidden");
-      loginBtn.classList.remove("hidden");
-      loginPass.focus();
-    });
-    profilesGrid.appendChild(b);
-  });
+function resolveEmail(userInput) {
+  const norm = userInput.trim().toLowerCase();
+  if (norm.includes("@")) return norm;
+  // Mapear nombres directos a los correos de Firebase
+  if (norm === "papa" || norm === "papá") return "papa@chat-familia.local";
+  if (norm === "hija") return "hija@chat-familia.local";
+  if (norm === "amor" || norm === "esposa" || norm === "mama" || norm === "mamá") return "amor@chat-familia.local";
+  return norm + "@chat-familia.local";
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -174,29 +159,33 @@ onAuthStateChanged(auth, (user) => {
 
 function showLogin(msg = "") {
   stopChat();
-  renderProfiles();
   chatApp.classList.add("hidden");
   loginScreen.classList.remove("hidden");
   loginBtn.disabled = false;
   loginBtn.textContent = "Entrar";
   loginError.textContent = msg;
   loginError.classList.toggle("hidden", !msg);
+  loginPass.value = "";
+  if (loginUser) loginUser.focus();
 }
 
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!loginEmail.value) return showLogin("Toca tu nombre primero.");
+  const userText = loginUser.value.trim();
+  if (!userText) return showLogin("Escribe tu nombre de usuario.");
+  const email = resolveEmail(userText);
+
   loginBtn.disabled = true;
   loginBtn.textContent = "Entrando…";
   loginError.classList.add("hidden");
   try {
-    await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+    await signInWithEmailAndPassword(auth, email, loginPass.value);
     loginPass.value = "";
   } catch (err) {
     console.error(err);
     showLogin(err.code === "auth/too-many-requests"
       ? "Demasiados intentos. Espera unos minutos."
-      : "Clave incorrecta.");
+      : "Usuario o clave incorrecta.");
   }
 });
 
