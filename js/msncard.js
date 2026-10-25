@@ -29,11 +29,25 @@ export function playMsnCard(cardData, isAuto = false) {
   // Mostrar exclusivamente el video limpio sin fondos, marcos ni textos ajenos al video
   if (cardData.video) {
     overlay.className = "msncard-overlay msncard-video-overlay";
-    if(cardData.transparencia === "alpha-split-v1"){playTransparentCard(overlay,closeBtn,cardData);return;}
+    if (cardData.transparencia === "alpha-split-v1") {
+      playTransparentCard(overlay, closeBtn, cardData);
+      return;
+    }
     const vidWrap = document.createElement("div");
     vidWrap.className = "msncard-video-full";
-    const playerVideo=document.createElement('video');playerVideo.className='msncard-player-video';playerVideo.src=cardData.video;playerVideo.autoplay=true;playerVideo.playsInline=true;playerVideo.controls=true;vidWrap.append(playerVideo);
-    overlay.append(closeBtn, vidWrap);
+    const playerVideo = document.createElement('video');
+    playerVideo.className = 'msncard-player-video';
+    playerVideo.src = cardData.video;
+    playerVideo.autoplay = true;
+    playerVideo.playsInline = true;
+    playerVideo.controls = false;
+    playerVideo.onended = () => {
+      overlay.style.transition = "opacity 0.6s ease";
+      overlay.style.opacity = "0";
+      setTimeout(() => closeMsnCard(), 650);
+    };
+    vidWrap.append(playerVideo);
+    overlay.append(vidWrap);
     document.body.appendChild(overlay);
 
     // Efecto de partículas solo si se configuró explícitamente y no es "ninguno"
@@ -46,7 +60,7 @@ export function playMsnCard(cardData, isAuto = false) {
 
     const vid = vidWrap.querySelector("video");
     if (vid) {
-      activeCardVideo=vid;
+      activeCardVideo = vid;
       vid.play().catch(() => {});
     }
     return;
@@ -234,25 +248,72 @@ function escapeHtml(str) {
 }
 
 // alpha-split-v1 stores RGB above a grayscale opacity mask in one H.264 video.
-function playTransparentCard(overlay,closeBtn,cardData){
- overlay.classList.add('msncard-transparent');
- const wrap=document.createElement('div');wrap.className='msncard-video-full';
- const canvas=document.createElement('canvas');canvas.className='msncard-alpha-canvas';
- const video=document.createElement('video');video.className='msncard-alpha-source';video.playsInline=true;video.setAttribute('playsinline','');video.src=cardData.video;video.preload='auto';activeCardVideo=video;
- const toggle=document.createElement('button');toggle.className='msncard-video-toggle';toggle.type='button';toggle.textContent='Reproducir';
- const scratch=document.createElement('canvas'),sg=scratch.getContext('2d',{willReadFrequently:true}),g=canvas.getContext('2d');let last=-1;
- toggle.onclick=()=>{if(video.paused)video.play().catch(()=>{toggle.textContent='Reproducir';});else video.pause();};
- video.onplay=()=>{toggle.textContent='Pausar';};video.onpause=()=>{toggle.textContent='Reproducir';};video.onended=()=>{toggle.textContent='Repetir';};
- video.onloadedmetadata=()=>{const ratio=Math.min(1,960/video.videoWidth,960/(video.videoHeight/2)),w=Math.max(2,Math.round(video.videoWidth*ratio)),h=Math.max(2,Math.round(video.videoHeight/2*ratio));canvas.width=scratch.width=w;canvas.height=h;scratch.height=h*2;};
- function draw(){
-  if(!overlay.isConnected||activeCardVideo!==video)return;
-  videoFrameId=requestAnimationFrame(draw);
-  if(video.readyState<2||video.currentTime===last||!canvas.width)return;last=video.currentTime;
-  const w=canvas.width,h=canvas.height;sg.drawImage(video,0,0,w,h*2);const all=sg.getImageData(0,0,w,h*2),out=g.createImageData(w,h),length=w*h*4;
-  for(let i=0;i<length;i+=4){out.data[i]=all.data[i];out.data[i+1]=all.data[i+1];out.data[i+2]=all.data[i+2];const a=all.data[length+i];out.data[i+3]=a<5?0:a>250?255:a;}
-  g.putImageData(out,0,0);
- }
- wrap.append(canvas,video,toggle);overlay.append(closeBtn,wrap);document.body.append(overlay);
- if(cardData.efecto&&cardData.efecto!=='ninguno'){const particles=document.createElement('canvas');particles.className='msncard-particles';overlay.insertBefore(particles,wrap);startParticles(particles,cardData.efecto);}
- draw();video.play().catch(()=>{toggle.textContent='Reproducir';});
+function playTransparentCard(overlay, closeBtn, cardData) {
+  overlay.classList.add('msncard-transparent', 'msncard-sin-fondo');
+  const wrap = document.createElement('div');
+  wrap.className = 'msncard-video-full';
+  const canvas = document.createElement('canvas');
+  canvas.className = 'msncard-alpha-canvas';
+  const video = document.createElement('video');
+  video.className = 'msncard-alpha-source';
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.src = cardData.video;
+  video.preload = 'auto';
+  activeCardVideo = video;
+
+  // Al terminar, fade-out suave y auto-cierre (sin botón repetir ni cerrar)
+  video.onended = () => {
+    overlay.style.transition = 'opacity 0.6s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => closeMsnCard(), 650);
+  };
+
+  const scratch = document.createElement('canvas');
+  const sg = scratch.getContext('2d', { willReadFrequently: true });
+  const g = canvas.getContext('2d');
+  let last = -1;
+
+  video.onloadedmetadata = () => {
+    const ratio = Math.min(1, 960 / video.videoWidth, 960 / (video.videoHeight / 2));
+    const w = Math.max(2, Math.round(video.videoWidth * ratio));
+    const h = Math.max(2, Math.round(video.videoHeight / 2 * ratio));
+    canvas.width = scratch.width = w;
+    canvas.height = h;
+    scratch.height = h * 2;
+  };
+
+  function draw() {
+    if (!overlay.isConnected || activeCardVideo !== video) return;
+    videoFrameId = requestAnimationFrame(draw);
+    if (video.readyState < 2 || video.currentTime === last || !canvas.width) return;
+    last = video.currentTime;
+    const w = canvas.width, h = canvas.height;
+    sg.drawImage(video, 0, 0, w, h * 2);
+    const all = sg.getImageData(0, 0, w, h * 2);
+    const out = g.createImageData(w, h);
+    const length = w * h * 4;
+    for (let i = 0; i < length; i += 4) {
+      out.data[i] = all.data[i];
+      out.data[i + 1] = all.data[i + 1];
+      out.data[i + 2] = all.data[i + 2];
+      const a = all.data[length + i];
+      out.data[i + 3] = a < 5 ? 0 : a > 250 ? 255 : a;
+    }
+    g.putImageData(out, 0, 0);
+  }
+
+  wrap.append(canvas, video);
+  overlay.append(wrap);
+  document.body.append(overlay);
+
+  if (cardData.efecto && cardData.efecto !== 'ninguno') {
+    const particles = document.createElement('canvas');
+    particles.className = 'msncard-particles';
+    overlay.insertBefore(particles, wrap);
+    startParticles(particles, cardData.efecto);
+  }
+
+  draw();
+  video.play().catch(() => {});
 }
