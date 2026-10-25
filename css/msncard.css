@@ -106,10 +106,13 @@
 }
 
 .msncard-img {
-  max-width: 220px;
-  max-height: 220px;
+  max-width: 280px;
+  max-height: 280px;
   object-fit: contain;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
+  background: transparent;
+  /* drop-shadow respeta el alpha del PNG, box-shadow no */
+  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.5));
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .msncard-text {

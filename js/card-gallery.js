@@ -6,7 +6,9 @@
 function drawHeartWithEyes(size = 300) {
   const c = document.createElement("canvas");
   c.width = size; c.height = size;
-  const ctx = c.getContext("2d");
+  const ctx = c.getContext("2d", { alpha: true });
+  // Fondo completamente transparente
+  ctx.clearRect(0, 0, size, size);
 
   const cx = size / 2, cy = size / 2 + size * 0.05;
   const s = size / 300; // escala
@@ -100,7 +102,8 @@ function drawHeartWithEyes(size = 300) {
 function drawStar(size = 300) {
   const c = document.createElement("canvas");
   c.width = size; c.height = size;
-  const ctx = c.getContext("2d");
+  const ctx = c.getContext("2d", { alpha: true });
+  ctx.clearRect(0, 0, size, size);
   const cx = size / 2, cy = size / 2;
   const outer = size * 0.44, inner = size * 0.18;
   const spikes = 5;
@@ -153,7 +156,8 @@ function drawStar(size = 300) {
 function drawMoon(size = 300) {
   const c = document.createElement("canvas");
   c.width = size; c.height = size;
-  const ctx = c.getContext("2d");
+  const ctx = c.getContext("2d", { alpha: true });
+  ctx.clearRect(0, 0, size, size);
   const cx = size / 2, cy = size / 2;
 
   ctx.save();
@@ -197,7 +201,8 @@ function drawMoon(size = 300) {
 function drawRose(size = 300) {
   const c = document.createElement("canvas");
   c.width = size; c.height = size;
-  const ctx = c.getContext("2d");
+  const ctx = c.getContext("2d", { alpha: true });
+  ctx.clearRect(0, 0, size, size);
   const cx = size / 2, cy = size * 0.45;
 
   // Tallo
@@ -254,7 +259,8 @@ function drawRose(size = 300) {
 function drawDiamond(size = 300) {
   const c = document.createElement("canvas");
   c.width = size; c.height = size;
-  const ctx = c.getContext("2d");
+  const ctx = c.getContext("2d", { alpha: true });
+  ctx.clearRect(0, 0, size, size);
   const cx = size / 2, cy = size / 2;
 
   // Facetas del diamante
