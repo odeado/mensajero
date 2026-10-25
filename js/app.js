@@ -313,10 +313,11 @@ function subscribeMessages() {
   list.innerHTML = "";
   let first = true;
 
-  // Filtrar exclusivamente los mensajes del chat activo actual (papa_hija o papa_amor)
+  // Consulta por fecha (orden natural de Firestore sin requerir índice compuesto)
+  // y separamos/mostramos en cliente solo los de este chat.
+  // Los mensajes históricos anteriores no tenían chatId: pertenecen al chat con la Hija ("papa_hija").
   const q = query(
     collection(db, "messages"),
-    where("chatId", "==", currentChatId),
     orderBy("createdAt"),
     limitToLast(msgLimit)
   );
@@ -333,10 +334,23 @@ function subscribeMessages() {
       }
       const data = ch.doc.data({ serverTimestamps: "estimate" });
       const pending = ch.doc.metadata.hasPendingWrites;
+
+      // Un mensaje pertenece a este chat si coincide el chatId,
+      // o si es un mensaje antiguo sin chatId y estamos en el chat de la Hija ("papa_hija").
+      const msgChatId = data.chatId || "papa_hija";
+      if (msgChatId !== currentChatId) {
+        // Pertenece a otra conversación: no mostrarlo aquí
+        if (bubbles.has(id)) {
+          bubbles.get(id).remove();
+          bubbles.delete(id);
+        }
+        return;
+      }
+
       if (ch.type === "added") {
         const el = buildBubble(id, data, pending);
         bubbles.set(id, el);
-        list.insertBefore(el, list.children[ch.newIndex] || null);
+        list.appendChild(el);
         if (!first && data.senderUid === me.uid) ownNew = true;
         if (!first && data.senderUid !== me.uid && !ch.doc.metadata.fromCache) incoming(data);
       } else {
@@ -422,6 +436,8 @@ fileInput.addEventListener("change", async () => {
 async function compressImage(file) {
   const img = await loadImage(file);
   const LIMIT = 700_000; // caracteres base64 (~500 KB), bajo el máximo de Firestore
+  const isPng = file.type === "image/png";
+
   for (const maxSide of [1280, 1024, 800, 640]) {
     const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
     const w = Math.round(img.width * scale);
@@ -429,12 +445,26 @@ async function compressImage(file) {
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, w, h);
+
+    // Si NO es PNG, le ponemos fondo blanco por si era jpeg
+    if (!isPng) {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, w, h);
+    }
     ctx.drawImage(img, 0, 0, w, h);
-    for (const q of [0.72, 0.6, 0.5]) {
-      const data = canvas.toDataURL("image/jpeg", q);
-      if (data.length <= LIMIT) return data;
+
+    // Si es PNG, preservamos transparencia
+    if (isPng) {
+      const pngData = canvas.toDataURL("image/png");
+      if (pngData.length <= LIMIT) return pngData;
+    }
+
+    // Para JPG o WebP
+    for (const q of [0.8, 0.65, 0.5]) {
+      const data = canvas.toDataURL("image/webp", q);
+      if (data.startsWith("data:image/webp") && data.length <= LIMIT) return data;
+      const dataJpg = canvas.toDataURL("image/jpeg", q);
+      if (dataJpg.length <= LIMIT) return dataJpg;
     }
   }
   throw new Error("Imagen demasiado grande");
@@ -524,6 +554,7 @@ function appendLinkedText(parent, text) {
     a.textContent = url;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
+    a.addEventListener("pointerdown", (e) => e.stopPropagation());
     a.addEventListener("click", (e) => e.stopPropagation());
     frag.appendChild(a);
     from = m.index + url.length;

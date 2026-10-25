@@ -351,6 +351,10 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
   overflow-wrap: anywhere;
+  cursor: pointer;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .message-bubble.sent .msg-content a.msg-link {
@@ -402,6 +406,7 @@ body {
   display: block;
   border-radius: 8px;
   transition: transform 0.2s;
+  background-color: transparent;
 }
 
 .img-msg-container img:hover {
