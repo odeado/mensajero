@@ -20,6 +20,11 @@ export function playMsnCard(cardData, isAuto = false) {
   closeBtn.title = "Cerrar presentación";
   closeBtn.onclick = closeMsnCard;
 
+  // Ocultar botón cerrar en tarjetas de galería (se cierran solas al terminar)
+  if (cardData.fondo === "transparente") {
+    closeBtn.style.display = "none";
+  }
+
   // Si la tarjeta contiene un video renderizado (exportado desde el editor de video)
   // Mostrar exclusivamente el video limpio sin fondos, marcos ni textos ajenos al video
   if (cardData.video) {
@@ -83,16 +88,10 @@ export function playMsnCard(cardData, isAuto = false) {
 
   function showScene(idx) {
     if (idx >= escenas.length) {
-      // Fin de la presentación: mostrar botón para repetir
-      dotsBar.innerHTML = "";
-      contentBox.innerHTML = `
-        <div class="msncard-scene end-scene">
-          <div class="msncard-title">${escapeHtml(cardData.titulo || "Fin ✨")}</div>
-          <button type="button" class="g-btn" id="msncard-replay"><i class="fa-solid fa-rotate-right"></i> Ver de nuevo</button>
-        </div>
-      `;
-      const replay = contentBox.querySelector("#msncard-replay");
-      if (replay) replay.onclick = () => showScene(0);
+      // Fin: fade out y cerrar automáticamente
+      overlay.style.transition = "opacity 0.6s ease";
+      overlay.style.opacity = "0";
+      setTimeout(() => closeMsnCard(), 650);
       return;
     }
 
