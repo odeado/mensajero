@@ -58,6 +58,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="icon-btn hidden" id="switch-chat-btn" title="Cambiar de chat"><i class="fa-solid fa-users"></i></button>
         <button class="me-btn" id="me-btn" title="Cambiar mi avatar"></button>
         <button class="icon-btn" id="bell-btn" title="Notificaciones"><i class="fa-solid fa-bell-slash"></i></button>
         <button class="icon-btn" id="logout-btn" title="Cerrar sesión / cambiar usuario">
@@ -72,7 +73,7 @@
       <button id="load-more" class="load-more hidden">Cargar mensajes anteriores</button>
       <div class="welcome-banner">
         <div class="welcome-icon">🔐</div>
-        <p>Chat privado entre Papá e Hija.</p>
+        <p id="welcome-text">Chat privado 1-a-1.</p>
         <span class="security-tag">Mantén apretado un mensaje para reaccionar ❤️</span>
       </div>
       <div id="messages-list" class="messages-list"></div>
@@ -114,6 +115,18 @@
         <button class="icon-btn" id="avatar-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="avatar-grid" class="avatar-grid"></div>
+    </div>
+  </div>
+
+  <!-- Modal selector de chat (solo para usuarios con múltiples chats como Papá) -->
+  <div id="chat-picker-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="game-head">
+        <h3>💬 Elige con quién chatear</h3>
+        <button class="icon-btn" id="chat-picker-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">Chats separados y completamente privados:</p>
+      <div class="profiles-grid" id="chat-picker-grid"></div>
     </div>
   </div>
 

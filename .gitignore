@@ -2,3 +2,9 @@ _version_node_antigua/
 node_modules/
 .env
 .DS_Store
+
+AndroidApp/.gradle/
+AndroidApp/build/
+AndroidApp/app/build/
+AndroidApp/local.properties
+*.apk

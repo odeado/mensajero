@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Burbuja grande (papá) -->
+    <path android:fillColor="#3B82F6" android:pathData="M30,30h36a6,6 0,0 1,6 6v20a6,6 0,0 1,-6 6h-24l-10,8v-8h-2a6,6 0,0 1,-6 -6v-20a6,6 0,0 1,6 -6z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M34,40h28v4h-28zM34,48h18v4h-18z"/>
+    <!-- Burbuja (hija) con corazón -->
+    <path android:fillColor="#EC4899" android:pathData="M54,50h24a6,6 0,0 1,6 6v14a6,6 0,0 1,-6 6h-2v7l-9,-7h-13a6,6 0,0 1,-6 -6v-14a6,6 0,0 1,6 -6z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M66,72c-1,-1 -8,-5.5 -8,-10a4,4 0,0 1,8 -1a4,4 0,0 1,8 1c0,4.5 -7,9 -8,10z"/>
+</vector>

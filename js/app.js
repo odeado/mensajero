@@ -1,11 +1,11 @@
-import { firebaseConfig, FAMILY } from "./config.js";
+import { firebaseConfig, FAMILY, CHATS } from "./config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, connectAuthEmulator
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, query, orderBy, limitToLast, onSnapshot, addDoc, doc, setDoc, updateDoc,
+  collection, query, where, orderBy, limitToLast, onSnapshot, addDoc, doc, setDoc, updateDoc,
   writeBatch, serverTimestamp, deleteField, connectFirestoreEmulator
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { AVATARS, REACTIONS, emojiOnlyCount, createEmojiPicker, insertAtCursor } from "./emoji.js";
@@ -71,6 +71,11 @@ const toastEl = $("toast");
 const reactionBar = $("reaction-bar");
 const avatarModal = $("avatar-modal");
 const avatarGrid = $("avatar-grid");
+const switchChatBtn = $("switch-chat-btn");
+const chatPickerModal = $("chat-picker-modal");
+const chatPickerClose = $("chat-picker-close");
+const chatPickerGrid = $("chat-picker-grid");
+const welcomeText = $("welcome-text");
 
 // ---------- Estado ----------
 const PAGE = 50;
@@ -78,7 +83,9 @@ const ONLINE_WINDOW_MS = 75_000;
 const HEARTBEAT_MS = 30_000;
 
 let me = null;            // { uid, email, name, avatar }
-let partner = null;       // { email, name, avatar }
+let partner = null;       // { email, name, avatar, uid? }
+let currentChatId = null; // "papa_hija" o "papa_amor"
+let availableChats = [];  // lista de chats a los que tiene acceso el usuario logueado
 let msgLimit = PAGE;
 let unsubMessages = null;
 let unsubStatus = null;
@@ -138,10 +145,32 @@ onAuthStateChanged(auth, (user) => {
     signOut(auth);
     return showLogin("Esta cuenta no tiene acceso.");
   }
-  const partnerEmail = Object.keys(FAMILY).find((e) => e !== email);
+
+  // Descubrir a qué chats tiene acceso este usuario
+  availableChats = Object.entries(CHATS)
+    .filter(([, cfg]) => cfg.participants.includes(email))
+    .map(([id, cfg]) => {
+      const pEmail = cfg.participants.find((e) => e !== email);
+      return {
+        id,
+        partnerEmail: pEmail,
+        partnerName: FAMILY[pEmail]?.name || "Desconocido",
+        partnerAvatar: cachedAvatar(pEmail)
+      };
+    });
+
+  if (!availableChats.length) {
+    signOut(auth);
+    return showLogin("No tienes ningún chat asignado.");
+  }
+
   me = { uid: user.uid, email, ...profile, avatar: cachedAvatar(email) };
-  partner = { email: partnerEmail, ...FAMILY[partnerEmail], avatar: cachedAvatar(partnerEmail) };
-  startChat();
+
+  // Guardar/recuperar último chat seleccionado
+  const savedChat = localStorage.getItem("last_chat_" + email);
+  const initialChat = availableChats.find((c) => c.id === savedChat) || availableChats[0];
+
+  selectChat(initialChat.id);
 });
 
 function showLogin(msg = "") {
@@ -179,11 +208,71 @@ logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
 });
 
+// ---------- Selector de Chat (si tiene más de 1) ----------
+function selectChat(chatId) {
+  const target = availableChats.find((c) => c.id === chatId);
+  if (!target) return;
+
+  currentChatId = chatId;
+  try { localStorage.setItem("last_chat_" + me.email, chatId); } catch {}
+
+  partner = {
+    email: target.partnerEmail,
+    ...FAMILY[target.partnerEmail],
+    avatar: cachedAvatar(target.partnerEmail)
+  };
+
+  startChat();
+}
+
+if (switchChatBtn) {
+  switchChatBtn.addEventListener("click", () => {
+    renderChatPicker();
+    chatPickerModal.classList.remove("hidden");
+  });
+}
+if (chatPickerClose) {
+  chatPickerClose.addEventListener("click", () => chatPickerModal.classList.add("hidden"));
+}
+if (chatPickerModal) {
+  chatPickerModal.addEventListener("click", (e) => {
+    if (e.target === chatPickerModal) chatPickerModal.classList.add("hidden");
+  });
+}
+
+function renderChatPicker() {
+  chatPickerGrid.innerHTML = "";
+  availableChats.forEach((c) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "profile-btn" + (c.id === currentChatId ? " selected" : "");
+    const av = document.createElement("div");
+    av.className = "avatar";
+    av.textContent = cachedAvatar(c.partnerEmail);
+    const name = document.createElement("span");
+    name.textContent = c.partnerName;
+    b.append(av, name);
+    b.addEventListener("click", () => {
+      chatPickerModal.classList.add("hidden");
+      if (c.id !== currentChatId) selectChat(c.id);
+    });
+    chatPickerGrid.appendChild(b);
+  });
+}
+
 // ---------- Chat ----------
 function startChat() {
   loginScreen.classList.add("hidden");
   chatApp.classList.remove("hidden");
   partnerNameEl.textContent = partner.name;
+  if (welcomeText) welcomeText.textContent = `Chat privado entre ${me.name} y ${partner.name}.`;
+
+  // Mostrar botón de cambiar de chat solo si tiene más de 1 chat (ej. Papá)
+  // Para Hija o Amor, este botón queda totalmente oculto.
+  if (switchChatBtn) {
+    switchChatBtn.classList.toggle("hidden", availableChats.length <= 1);
+  }
+
   renderAvatars();
   renderBell();
   document.title = `Chat con ${partner.name}`;
@@ -224,7 +313,13 @@ function subscribeMessages() {
   list.innerHTML = "";
   let first = true;
 
-  const q = query(collection(db, "messages"), orderBy("createdAt"), limitToLast(msgLimit));
+  // Filtrar exclusivamente los mensajes del chat activo actual (papa_hija o papa_amor)
+  const q = query(
+    collection(db, "messages"),
+    where("chatId", "==", currentChatId),
+    orderBy("createdAt"),
+    limitToLast(msgLimit)
+  );
   unsubMessages = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
     const wasAtBottom = isNearBottom();
     let ownNew = false;
@@ -289,7 +384,11 @@ loadMoreBtn.addEventListener("click", () => {
 // ---------- Enviar ----------
 function sendMessage(fields) {
   return addDoc(collection(db, "messages"), {
-    senderUid: me.uid, ...fields, createdAt: serverTimestamp(), read: false
+    chatId: currentChatId,
+    senderUid: me.uid,
+    ...fields,
+    createdAt: serverTimestamp(),
+    read: false
   }).catch((err) => { console.error(err); toast("No se pudo enviar."); });
 }
 
@@ -640,14 +739,24 @@ avatarModal.addEventListener("click", (e) => { if (e.target === avatarModal) ava
 // ---------- En línea / escribiendo ----------
 function setStatus(fields) {
   if (!me) return Promise.resolve();
-  return setDoc(doc(db, "status", me.uid), { ...fields, lastSeen: serverTimestamp() }, { merge: true });
+  // Incluimos el email y el chat en el que está escribiendo
+  return setDoc(doc(db, "status", me.uid), {
+    ...fields,
+    email: me.email,
+    activeChat: currentChatId,
+    lastSeen: serverTimestamp()
+  }, { merge: true });
 }
 
 function subscribeStatus() {
   unsubStatus?.();
   unsubStatus = onSnapshot(collection(db, "status"), (snap) => {
     const mine = snap.docs.find((d) => d.id === me.uid)?.data();
-    const other = snap.docs.find((d) => d.id !== me.uid);
+    // Encontrar el estado del partner actual (por su email o por exclusión)
+    const other = snap.docs.find((d) => {
+      const data = d.data();
+      return (data.email && data.email === partner.email) || (!data.email && d.id !== me.uid);
+    });
     partnerStatus = other ? other.data({ serverTimestamps: "estimate" }) : null;
 
     if (mine?.avatar && mine.avatar !== me.avatar) { me.avatar = mine.avatar; cacheAvatar(me.email, mine.avatar); }
@@ -659,7 +768,8 @@ function subscribeStatus() {
     renderPartnerStatus();
 
     clearTimeout(typingHideTimer);
-    if (partnerStatus?.typing && isPartnerOnline()) {
+    const typingInThisChat = !partnerStatus?.activeChat || partnerStatus.activeChat === currentChatId;
+    if (partnerStatus?.typing && typingInThisChat && isPartnerOnline()) {
       typingText.textContent = `${partner.name} está escribiendo...`;
       typingIndicator.classList.remove("hidden");
       typingHideTimer = setTimeout(() => typingIndicator.classList.add("hidden"), 6000);

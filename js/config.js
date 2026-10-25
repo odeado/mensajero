@@ -1,9 +1,7 @@
 // ==========================================================
-//  CONFIGURACIÓN — edita SOLO este archivo
+//  CONFIGURACIÓN
 // ==========================================================
 
-// 1) Pega aquí la config de tu proyecto Firebase
-//    (Consola Firebase → Configuración del proyecto → Tus apps → Web)
 export const firebaseConfig = {
   apiKey: "AIzaSyDdjpQBmzHzPH-8_GZk699E_VKh6gcMhzM",
   authDomain: "familia-a9fb6.firebaseapp.com",
@@ -14,10 +12,22 @@ export const firebaseConfig = {
   measurementId: "G-WJMHD7799X"
 };
 
-// 2) Los DOS "usuarios". No necesitan ser correos reales:
-//    solo son el nombre de usuario en Firebase (nadie los ve ni reciben nada).
-//    Deben ser los mismos que pongas en firestore.rules
+// Los 3 usuarios del sistema:
+// Papá habla con Hija y con Amor de forma 1-a-1 totalmente aislada.
 export const FAMILY = {
   "papa@chat-familia.local": { name: "Papá", avatar: "👨" },
-  "hija@chat-familia.local": { name: "Hija", avatar: "👧" }
+  "hija@chat-familia.local": { name: "Hija", avatar: "👧" },
+  "amor@chat-familia.local": { name: "Amor", avatar: "❤️" }
+};
+
+// Define los canales 1-a-1 permitidos y quiénes participan
+export const CHATS = {
+  "papa_hija": {
+    participants: ["papa@chat-familia.local", "hija@chat-familia.local"],
+    name: "Chat con Hija"
+  },
+  "papa_amor": {
+    participants: ["papa@chat-familia.local", "amor@chat-familia.local"],
+    name: "Chat con Amor"
+  }
 };

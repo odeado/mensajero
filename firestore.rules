@@ -1,41 +1,60 @@
 rules_version = '2';
 
 // Pegar en: Consola Firebase → Firestore Database → Reglas → Publicar
-// Los dos usuarios deben ser los mismos de js/config.js
+// Usuarios permitidos: papa, hija y amor (chats 1-a-1 aislados)
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isFamily() {
       return request.auth != null
-        && request.auth.token.email in ['papa@chat-familia.local', 'hija@chat-familia.local'];
+        && request.auth.token.email in [
+          'papa@chat-familia.local',
+          'hija@chat-familia.local',
+          'amor@chat-familia.local'
+        ];
+    }
+
+    // Un usuario solo puede acceder al chat si es participante de él:
+    // "papa_hija" -> solo papa e hija
+    // "papa_amor" -> solo papa y amor
+    function canAccessChat(chatId) {
+      return isFamily() && (
+        (chatId == 'papa_hija' && request.auth.token.email in ['papa@chat-familia.local', 'hija@chat-familia.local']) ||
+        (chatId == 'papa_amor' && request.auth.token.email in ['papa@chat-familia.local', 'amor@chat-familia.local'])
+      );
     }
 
     function validText(d) {
       return d.type == 'text'
-        && d.keys().hasOnly(['senderUid', 'type', 'text', 'createdAt', 'read'])
+        && d.keys().hasOnly(['chatId', 'senderUid', 'type', 'text', 'createdAt', 'read'])
         && d.text is string && d.text.size() > 0 && d.text.size() <= 4000;
     }
 
     function validImage(d) {
       return d.type == 'image'
-        && d.keys().hasOnly(['senderUid', 'type', 'image', 'createdAt', 'read'])
+        && d.keys().hasOnly(['chatId', 'senderUid', 'type', 'image', 'createdAt', 'read'])
         && d.image is string && d.image.size() <= 950000;
     }
 
     function validGame(d) {
       return d.type == 'game'
-        && d.keys().hasOnly(['senderUid', 'type', 'game', 'gameId', 'createdAt', 'read'])
+        && d.keys().hasOnly(['chatId', 'senderUid', 'type', 'game', 'gameId', 'createdAt', 'read'])
         && d.game in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga']
         && d.gameId is string && d.gameId.size() <= 64;
     }
 
     match /messages/{id} {
-      allow read: if isFamily();
+      // Solo puedes leer mensajes si perteneces a ese chat (o mensajes antiguos sin chatId si eres papa/hija)
+      allow read: if isFamily() && (
+        !('chatId' in resource.data) ? request.auth.token.email in ['papa@chat-familia.local', 'hija@chat-familia.local']
+        : canAccessChat(resource.data.chatId)
+      );
 
-      // Solo puedes crear mensajes a tu propio nombre
+      // Solo puedes crear mensajes a tu propio nombre en un chat al que perteneces
       allow create: if isFamily()
         && request.resource.data.senderUid == request.auth.uid
+        && canAccessChat(request.resource.data.chatId)
         && request.resource.data.read == false
         && request.resource.data.createdAt == request.time
         && (validText(request.resource.data)
@@ -59,7 +78,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Partidas de juegos
+    // Partidas de juegos (cada jugador solo entra si pertenece al juego/chat)
     match /games/{id} {
       allow read: if isFamily();
       allow create: if isFamily()
