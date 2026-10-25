@@ -15,6 +15,33 @@ export function playMsnCard(cardData, isAuto = false) {
   closeBtn.title = "Cerrar presentación";
   closeBtn.onclick = closeMsnCard;
 
+  // Si la tarjeta contiene un video renderizado (exportado desde el editor de video)
+  // Mostrar exclusivamente el video limpio sin fondos, marcos ni textos ajenos al video
+  if (cardData.video) {
+    overlay.className = "msncard-overlay msncard-video-overlay";
+    const vidWrap = document.createElement("div");
+    vidWrap.className = "msncard-video-full";
+    vidWrap.innerHTML = `
+      <video class="msncard-player-video" src="${cardData.video}" autoplay playsinline controls></video>
+    `;
+    overlay.append(closeBtn, vidWrap);
+    document.body.appendChild(overlay);
+
+    // Efecto de partículas solo si se configuró explícitamente y no es "ninguno"
+    if (cardData.efecto && cardData.efecto !== "ninguno") {
+      const particlesCanvas = document.createElement("canvas");
+      particlesCanvas.className = "msncard-particles";
+      overlay.insertBefore(particlesCanvas, vidWrap);
+      startParticles(particlesCanvas, cardData.efecto);
+    }
+
+    const vid = vidWrap.querySelector("video");
+    if (vid) {
+      vid.play().catch(() => {});
+    }
+    return;
+  }
+
   const contentBox = document.createElement("div");
   contentBox.className = "msncard-stage";
 
@@ -28,35 +55,8 @@ export function playMsnCard(cardData, isAuto = false) {
   // Iniciar animación de partículas de fondo
   startParticles(particlesCanvas, cardData.efecto || "corazones");
 
-  // Reproducir sonido si incluye audio sintético o base64 (solo si no es un video con su propio audio)
-  if (!cardData.video) {
-    playCardSound(cardData.efecto);
-  }
-
-  // Si la tarjeta contiene un video renderizado (exportado desde el editor de video)
-  if (cardData.video) {
-    contentBox.innerHTML = `
-      <div class="msncard-scene anim-zoom-in msncard-video-wrap">
-        <div class="msncard-title" style="margin-bottom:14px;">${escapeHtml(cardData.titulo || "¡Presentación para ti! ✨")}</div>
-        <video class="msncard-video" src="${cardData.video}" autoplay playsinline controls></video>
-      </div>
-    `;
-    const vid = contentBox.querySelector("video");
-    if (vid) {
-      vid.onended = () => {
-        contentBox.innerHTML = `
-          <div class="msncard-scene end-scene">
-            <div class="msncard-title">${escapeHtml(cardData.titulo || "Fin ✨")}</div>
-            <button type="button" class="g-btn" id="msncard-replay"><i class="fa-solid fa-rotate-right"></i> Ver de nuevo</button>
-          </div>
-        `;
-        const rep = contentBox.querySelector("#msncard-replay");
-        if (rep) rep.onclick = () => playMsnCard(cardData);
-      };
-      vid.play().catch(() => {});
-    }
-    return;
-  }
+  // Reproducir sonido si incluye audio sintético o base64
+  playCardSound(cardData.efecto);
 
   // Escenas secuenciales
   const escenas = Array.isArray(cardData.escenas) ? cardData.escenas : [];
