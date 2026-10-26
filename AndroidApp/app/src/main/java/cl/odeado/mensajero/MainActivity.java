@@ -362,7 +362,7 @@ public class MainActivity extends AppCompatActivity {
                 "Cerrar sesión de los avisos"
         };
         new AlertDialog.Builder(this)
-                .setTitle("Avisos del chat")
+                .setTitle("Avisos del chat · v" + appVersion())
                 .setItems(items, (d, which) -> {
                     if (which == 0) {
                         if (on) { ChatMonitorService.stop(this); showDisabled(); }
@@ -393,6 +393,14 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         return !pm.isIgnoringBatteryOptimizations(getPackageName());
+    }
+
+    private String appVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "?";
+        }
     }
 
     private void pedirBateria() {
