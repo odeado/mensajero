@@ -64,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
         // El chat tiene su propio scroll: deslizar para recargar molestaría al leer mensajes
         swipeRefresh.setEnabled(false);
 
+        mostrarVersionUnaVez();
+
         statusBar.setOnClickListener(v -> {
             if (!ChatApi.hasSession(this)) { askPassword(null); return; }
             if (ChatMonitorService.isEnabled(this)) ChatMonitorService.refresh(this);
@@ -401,6 +403,15 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             return "?";
         }
+    }
+
+    /** Avisa una sola vez, al abrir una versión recién instalada, qué build quedó en el teléfono. */
+    private void mostrarVersionUnaVez() {
+        SharedPreferences p = ChatMonitorService.prefs(this);
+        String v = appVersion();
+        if (v.equals(p.getString("versionVista", ""))) return;
+        p.edit().putString("versionVista", v).apply();
+        Toast.makeText(this, "Mensajero v" + v + " — fotos con cámara y galería 📷", Toast.LENGTH_LONG).show();
     }
 
     private void pedirBateria() {
