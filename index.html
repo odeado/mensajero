@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/fun.css">
   <link rel="stylesheet" href="css/msncard.css?v=msncard-alpha-20261025-r2">
   <link rel="stylesheet" href="css/card-gallery.css">
+  <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
 </head>
 <body>
 
@@ -137,24 +138,76 @@
   </div>
 
   <!-- Elegir origen de la foto (cámara o galería) -->
-  <div id="photo-source-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="game-head">
-        <h3>📷 Enviar foto</h3>
-        <button class="icon-btn" id="photo-source-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="profiles-grid">
-        <button type="button" class="profile-btn" id="photo-camera">
-          <div class="avatar">📷</div>
-          <span>Tomar foto</span>
-        </button>
-        <button type="button" class="profile-btn" id="photo-gallery">
-          <div class="avatar">🖼️</div>
-          <span>Elegir de la galería</span>
+  <div id="photo-source-modal" class="photo-modal hidden">
+    <div class="photo-sheet" role="dialog" aria-modal="true" aria-labelledby="photo-title">
+      <div class="photo-sheet-head">
+        <div class="photo-sheet-titles">
+          <h3 id="photo-title">Enviar una foto</h3>
+          <p>Elige cómo quieres compartirla</p>
+        </div>
+        <button class="photo-close" id="photo-source-close" type="button" aria-label="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
+
+      <div class="photo-options">
+        <button type="button" class="photo-option photo-option-cam" id="photo-camera">
+          <span class="photo-option-icon"><i class="fa-solid fa-camera"></i></span>
+          <span class="photo-option-text">
+            <strong>Cámara</strong>
+            <small>Tomar una foto ahora</small>
+          </span>
+          <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
+        </button>
+
+        <button type="button" class="photo-option photo-option-gal" id="photo-gallery">
+          <span class="photo-option-icon"><i class="fa-regular fa-images"></i></span>
+          <span class="photo-option-text">
+            <strong>Galería</strong>
+            <small>Elegir una imagen guardada</small>
+          </span>
+          <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
+        </button>
+      </div>
+
+      <p class="photo-note"><i class="fa-solid fa-bolt"></i> Se optimiza antes de enviarse</p>
     </div>
   </div>
+
+  <!-- Cámara en vivo: panel lateral junto al chat -->
+  <div id="camera-dock-backdrop" class="camera-dock-backdrop hidden"></div>
+  <aside id="camera-dock" class="camera-dock hidden" aria-hidden="true" aria-label="Cámara">
+    <div class="camera-dock-head">
+      <span class="camera-live"><span class="camera-live-dot"></span> En vivo</span>
+      <span class="camera-dock-title" id="camera-dock-title">Cámara</span>
+      <button class="camera-dock-btn" id="camera-close" type="button" aria-label="Cerrar cámara">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="camera-stage" id="camera-stage">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <div class="camera-grid" aria-hidden="true"></div>
+      <button class="camera-overlay-btn" id="camera-torch" type="button" aria-label="Linterna" title="Linterna">
+        <i class="fa-solid fa-bolt"></i>
+      </button>
+      <button class="camera-zoom-pill" id="camera-zoom" type="button" aria-label="Zoom" title="Zoom (también pellizca)">1×</button>
+      <div class="camera-flash" id="camera-flash" aria-hidden="true"></div>
+      <div class="camera-state" id="camera-state">Encendiendo cámara…</div>
+    </div>
+
+    <div class="camera-controls">
+      <button class="camera-round" id="camera-flip" type="button" aria-label="Cambiar cámara">
+        <i class="fa-solid fa-camera-rotate"></i>
+      </button>
+      <button class="camera-shutter" id="camera-shutter" type="button" aria-label="Tomar foto">
+        <span></span>
+      </button>
+      <button class="camera-round" id="camera-gallery" type="button" aria-label="Elegir de la galería">
+        <i class="fa-regular fa-images"></i>
+      </button>
+    </div>
+  </aside>
 
   <!-- Visor de fotos -->
   <div id="lightbox-modal" class="lightbox-modal hidden">
@@ -167,6 +220,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=fotos-camara-20261026"></script>
+  <script type="module" src="js/app.js?v=camara-dock-20261026"></script>
 </body>
 </html>

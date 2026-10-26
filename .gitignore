@@ -8,3 +8,7 @@ AndroidApp/build/
 AndroidApp/app/build/
 AndroidApp/local.properties
 *.apk
+
+# Maquetas y capturas de vista previa
+preview/
+

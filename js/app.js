@@ -434,34 +434,266 @@ sendForm.addEventListener("submit", (e) => {
   sendMessage({ type: "text", text });
 });
 
-// Foto (comprimida a base64) — desde cámara o galería
+// ---------- Fotos: modal propio + cámara en vivo ----------
+const cameraDock = $("camera-dock");
+const cameraBackdrop = $("camera-dock-backdrop");
+const cameraVideo = $("camera-video");
+const cameraState = $("camera-state");
+const cameraFlash = $("camera-flash");
+const cameraTitle = $("camera-dock-title");
+const cameraStage = $("camera-stage");
+const cameraTorchBtn = $("camera-torch");
+const cameraZoomBtn = $("camera-zoom");
+
+let camStream = null;
+let camFacing = "environment";
+let camBusy = false;
+let camFailed = false;
+let camTorch = false;
+let camZoom = 1;
+
 function pickPhoto(inputEl) {
   inputEl.click();
 }
 
-btnAttach.addEventListener("click", () => {
-  // En el APK el menú cámara/galería lo muestra la capa nativa.
-  if (window.MensajeroNative) return pickPhoto(fileInput);
-  photoModal.classList.remove("hidden");
-});
+function hidePhotoMenu() {
+  photoModal.classList.add("hidden");
+}
 
-$("photo-source-close").addEventListener("click", () => photoModal.classList.add("hidden"));
-$("photo-camera").addEventListener("click", () => {
-  photoModal.classList.add("hidden");
-  pickPhoto(cameraInput);
-});
+btnAttach.addEventListener("click", () => photoModal.classList.remove("hidden"));
+
+$("photo-source-close").addEventListener("click", hidePhotoMenu);
 $("photo-gallery").addEventListener("click", () => {
-  photoModal.classList.add("hidden");
+  hidePhotoMenu();
   pickPhoto(fileInput);
 });
+$("photo-camera").addEventListener("click", () => {
+  hidePhotoMenu();
+  openCameraDock();
+});
 photoModal.addEventListener("click", (e) => {
-  if (e.target === photoModal) photoModal.classList.add("hidden");
+  if (e.target === photoModal) hidePhotoMenu();
 });
 
-async function handlePhotoInput(e) {
-  const inputEl = e.currentTarget;
-  const file = inputEl.files[0];
-  inputEl.value = "";
+// --- Panel de cámara ---
+async function openCameraDock() {
+  cameraDock.classList.remove("hidden");
+  cameraDock.setAttribute("aria-hidden", "false");
+  cameraBackdrop.classList.remove("hidden");
+  await startCameraStream();
+}
+
+function closeCameraDock() {
+  stopCameraStream();
+  cameraDock.classList.add("hidden");
+  cameraDock.setAttribute("aria-hidden", "true");
+  cameraBackdrop.classList.add("hidden");
+}
+
+function stopCameraStream() {
+  if (camStream) {
+    for (const track of camStream.getTracks()) track.stop();
+    camStream = null;
+  }
+  cameraVideo.srcObject = null;
+  camTorch = false;
+  cameraTorchBtn.classList.remove("on");
+  camZoom = 1;
+  updateZoomLabel();
+}
+
+function setCameraState(html) {
+  if (!html) {
+    cameraState.classList.add("hidden");
+    return;
+  }
+  cameraState.innerHTML = html;
+  cameraState.classList.remove("hidden");
+}
+
+async function startCameraStream() {
+  stopCameraStream();
+  camFailed = false;
+  setCameraState("Encendiendo cámara…");
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    closeCameraDock();
+    return pickPhoto(cameraInput);
+  }
+
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: camFacing,
+        width: { ideal: 1440 },
+        height: { ideal: 1440 }
+      },
+      audio: false
+    });
+    cameraVideo.srcObject = camStream;
+    cameraTitle.textContent = camFacing === "user" ? "Cámara frontal" : "Cámara trasera";
+    await cameraVideo.play().catch(() => {});
+    updateZoomLabel();
+    setCameraState(null);
+  } catch (err) {
+    console.warn("Cámara no disponible", err);
+    camFailed = true;
+    const sinPermiso = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
+    setCameraState(
+      (sinPermiso ? "Falta el permiso de cámara." : "No se pudo abrir la cámara aquí.") +
+      "<br><b>Toca el botón blanco para usar la cámara del teléfono.</b>"
+    );
+  }
+}
+
+function captureFrame() {
+  const w = cameraVideo.videoWidth;
+  const h = cameraVideo.videoHeight;
+  if (!w || !h) return Promise.resolve(null);
+
+  // El zoom recorta el centro del cuadro, igual que se ve en pantalla.
+  const z = camZoom;
+  const sw = w / z;
+  const sh = h / z;
+  const sx = (w - sw) / 2;
+  const sy = (h - sh) / 2;
+
+  const max = 1440;
+  const scale = Math.min(1, max / Math.max(sw, sh));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(sw * scale);
+  canvas.height = Math.round(sh * scale);
+
+  const ctx = canvas.getContext("2d");
+  if (camFacing === "user") {
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+}
+
+// --- Linterna ---
+async function toggleTorch() {
+  const track = camStream && camStream.getVideoTracks()[0];
+  if (!track) return;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  if (!caps || !caps.torch) return toast("Este teléfono no permite la linterna desde aquí.");
+  try {
+    await track.applyConstraints({ advanced: [{ torch: !camTorch }] });
+    camTorch = !camTorch;
+    cameraTorchBtn.classList.toggle("on", camTorch);
+  } catch (err) {
+    console.warn(err);
+    toast("No se pudo encender la linterna.");
+  }
+}
+
+// --- Zoom (pellizco, rueda del mouse o tocando la etiqueta) ---
+function updateZoomLabel() {
+  cameraZoomBtn.textContent = camZoom.toFixed(1).replace(".0", "") + "×";
+  cameraZoomBtn.classList.toggle("zoomed", camZoom > 1.01);
+  const mirror = camFacing === "user" ? -1 : 1;
+  cameraVideo.style.transform = "scaleX(" + mirror + ") scale(" + camZoom + ")";
+}
+
+function setZoom(z) {
+  camZoom = Math.min(3, Math.max(1, Math.round(z * 10) / 10));
+  updateZoomLabel();
+}
+
+let pinchStartDist = 0;
+let pinchStartZoom = 1;
+
+function touchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+cameraStage.addEventListener("touchstart", (e) => {
+  if (e.touches.length !== 2) return;
+  pinchStartDist = touchDistance(e.touches);
+  pinchStartZoom = camZoom;
+}, { passive: true });
+
+cameraStage.addEventListener("touchmove", (e) => {
+  if (e.touches.length !== 2 || !pinchStartDist) return;
+  e.preventDefault();
+  setZoom(pinchStartZoom * (touchDistance(e.touches) / pinchStartDist));
+}, { passive: false });
+
+cameraStage.addEventListener("touchend", () => { pinchStartDist = 0; });
+cameraStage.addEventListener("touchcancel", () => { pinchStartDist = 0; });
+
+cameraStage.addEventListener("wheel", (e) => {
+  if (cameraDock.classList.contains("hidden")) return;
+  e.preventDefault();
+  setZoom(camZoom + (e.deltaY < 0 ? 0.25 : -0.25));
+}, { passive: false });
+
+cameraZoomBtn.addEventListener("click", () => {
+  setZoom(camZoom >= 2.9 ? 1 : camZoom + 1);
+});
+cameraTorchBtn.addEventListener("click", toggleTorch);
+
+async function onShutter() {
+  if (camBusy) return;
+
+  // Sin vista en vivo usamos la app de cámara del sistema.
+  if (!camStream || camFailed) {
+    closeCameraDock();
+    return pickPhoto(cameraInput);
+  }
+
+  camBusy = true;
+  cameraFlash.classList.remove("on");
+  void cameraFlash.offsetWidth;
+  cameraFlash.classList.add("on");
+
+  try {
+    const blob = await captureFrame();
+    if (!blob) throw new Error("sin imagen");
+    const file = new File([blob], "foto_" + Date.now() + ".jpg", { type: "image/jpeg" });
+    closeCameraDock();
+    await sendPhotoFile(file);
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo tomar la foto.");
+  } finally {
+    camBusy = false;
+  }
+}
+
+$("camera-shutter").addEventListener("click", onShutter);
+$("camera-close").addEventListener("click", closeCameraDock);
+cameraBackdrop.addEventListener("click", closeCameraDock);
+$("camera-flip").addEventListener("click", async () => {
+  camFacing = camFacing === "environment" ? "user" : "environment";
+  await startCameraStream();
+});
+$("camera-gallery").addEventListener("click", () => {
+  closeCameraDock();
+  pickPhoto(fileInput);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!cameraDock.classList.contains("hidden")) closeCameraDock();
+  else if (!photoModal.classList.contains("hidden")) hidePhotoMenu();
+});
+
+// Al minimizar la app apagamos la cámara; al volver, la encendemos de nuevo.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (camStream) stopCameraStream();
+  } else if (!cameraDock.classList.contains("hidden") && !camStream && !camFailed) {
+    startCameraStream();
+  }
+});
+
+// --- Envío de la foto (comprimida a base64) ---
+async function sendPhotoFile(file) {
   if (!file || !me) return;
   if (!file.type.startsWith("image/")) return toast("Solo se pueden enviar fotos.");
   try {
@@ -473,6 +705,13 @@ async function handlePhotoInput(e) {
     console.error(err);
     toast("No se pudo leer esa foto.");
   }
+}
+
+async function handlePhotoInput(e) {
+  const inputEl = e.currentTarget;
+  const file = inputEl.files[0];
+  inputEl.value = "";
+  await sendPhotoFile(file);
 }
 
 fileInput.addEventListener("change", handlePhotoInput);

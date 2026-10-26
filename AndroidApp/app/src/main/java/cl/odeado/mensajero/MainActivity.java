@@ -15,6 +15,7 @@ import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -42,12 +43,14 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_FILE = 102;
     private static final int REQ_GALLERY = 103;
     private static final int REQ_CAMERA = 104;
+    private static final int REQ_CAM_PERM = 105;
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private TextView statusBar;
     private ValueCallback<Uri[]> fileCallback;
     private Uri cameraOutputUri;
+    private PermissionRequest pendingCamRequest;
     private long pausedAt = 0;
 
     @Override
@@ -140,22 +143,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
-            // Fotos: elegir entre cámara y galería. Otros archivos (.msncard) usan el selector normal.
+            // La web ya muestra su propio menú (cámara / galería). Aquí solo abrimos
+            // la galería o la cámara del sistema según lo que pida la página.
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
 
                 if (wantsImage(params)) {
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("Enviar foto")
-                            .setItems(new String[]{"📷 Tomar foto", "🖼️ Elegir de la galería"}, (d, which) -> {
-                                if (which == 0) launchCamera();
-                                else launchGallery();
-                            })
-                            .setNegativeButton("Cancelar", (d, w) -> cancelFileChooser())
-                            .setOnCancelListener(d -> cancelFileChooser())
-                            .show();
+                    if (params.isCaptureEnabled()) launchCamera();
+                    else launchGallery();
                     return true;
                 }
 
@@ -167,6 +164,30 @@ public class MainActivity extends AppCompatActivity {
                     return false;
                 }
                 return true;
+            }
+
+            // Cámara en vivo dentro del chat (getUserMedia del panel lateral).
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> {
+                    boolean pideCamara = false;
+                    for (String recurso : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(recurso)) pideCamara = true;
+                    }
+                    if (!pideCamara) {
+                        request.deny();
+                        return;
+                    }
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                            == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    } else {
+                        if (pendingCamRequest != null) pendingCamRequest.deny();
+                        pendingCamRequest = request;
+                        ActivityCompat.requestPermissions(MainActivity.this,
+                                new String[]{Manifest.permission.CAMERA}, REQ_CAM_PERM);
+                    }
+                });
             }
         });
     }
@@ -411,7 +432,7 @@ public class MainActivity extends AppCompatActivity {
         String v = appVersion();
         if (v.equals(p.getString("versionVista", ""))) return;
         p.edit().putString("versionVista", v).apply();
-        Toast.makeText(this, "Mensajero v" + v + " — fotos con cámara y galería 📷", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Mensajero v" + v + " — cámara en vivo 📷", Toast.LENGTH_LONG).show();
     }
 
     private void pedirBateria() {
@@ -444,6 +465,16 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Sin permiso de notificaciones no recibirás los mensajes", Toast.LENGTH_LONG).show();
             }
             afterPermissions();
+        }
+
+        if (requestCode == REQ_CAM_PERM && pendingCamRequest != null) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                pendingCamRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            } else {
+                pendingCamRequest.deny();
+                Toast.makeText(this, "Sin permiso de cámara puedes enviar desde la galería", Toast.LENGTH_SHORT).show();
+            }
+            pendingCamRequest = null;
         }
     }
 

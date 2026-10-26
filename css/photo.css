@@ -1,0 +1,491 @@
+/* Modal de fotos + cámara en vivo (panel lateral) */
+
+/* ---------- Modal para elegir cámara o galería ---------- */
+.photo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(4, 10, 14, 0.62);
+  backdrop-filter: blur(7px) saturate(120%);
+  -webkit-backdrop-filter: blur(7px) saturate(120%);
+  animation: photo-fade 0.18s ease-out;
+}
+
+.photo-sheet {
+  width: min(430px, 100%);
+  padding: 20px;
+  border-radius: 28px;
+  background: linear-gradient(165deg, #1a2830 0%, #111b21 60%, #0d151a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: photo-pop 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.photo-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.photo-sheet-titles h3 {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  margin-bottom: 3px;
+}
+
+.photo-sheet-titles p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.photo-close {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.photo-close:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.photo-options {
+  display: grid;
+  gap: 12px;
+}
+
+.photo-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.photo-option:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(0, 168, 132, 0.4);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+}
+
+.photo-option:active {
+  transform: scale(0.985);
+}
+
+.photo-option-icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+  color: #fff;
+}
+
+.photo-option-cam .photo-option-icon {
+  background: linear-gradient(135deg, #00a884, #0ea5e9);
+  box-shadow: 0 10px 22px rgba(0, 168, 132, 0.32);
+}
+
+.photo-option-gal .photo-option-icon {
+  background: linear-gradient(135deg, #f472b6, #8b5cf6);
+  box-shadow: 0 10px 22px rgba(139, 92, 246, 0.3);
+}
+
+.photo-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.photo-option-text strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.photo-option-text small {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.photo-option-arrow {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.photo-option:hover .photo-option-arrow {
+  transform: translateX(3px);
+  color: var(--accent-green);
+}
+
+.photo-note {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.photo-note i {
+  color: var(--accent-green);
+  margin-right: 4px;
+}
+
+/* ---------- Cámara en vivo: panel al costado del chat ---------- */
+.camera-dock-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 510;
+  background: transparent;
+  animation: photo-fade 0.2s ease-out;
+}
+
+.camera-dock {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 520;
+  width: min(400px, calc(100vw - 36px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 26px;
+  background: rgba(15, 24, 31, 0.92);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: dock-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.camera-dock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.camera-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0, 168, 132, 0.14);
+  color: #4ade9f;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.camera-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00d68f;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+.camera-dock-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.camera-dock-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.camera-dock-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.camera-stage {
+  position: relative;
+  flex: 1;
+  min-height: 200px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #05090c;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+}
+
+.camera-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.16s ease;
+}
+
+.camera-stage video.mirror {
+  transform: scaleX(-1);
+}
+
+.camera-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(to right, #fff 1px, transparent 1px),
+    linear-gradient(to bottom, #fff 1px, transparent 1px);
+  background-size: 33.333% 33.333%;
+  background-position: -1px -1px;
+}
+
+.camera-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.camera-flash.on {
+  animation: shutter-flash 0.42s ease-out;
+}
+
+.camera-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cfd8dc;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.camera-state b {
+  color: var(--text-primary);
+}
+
+/* Linterna y zoom, encima del video */
+.camera-overlay-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 16, 20, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.camera-overlay-btn:hover {
+  background: rgba(10, 16, 20, 0.78);
+}
+
+.camera-overlay-btn:active {
+  transform: scale(0.92);
+}
+
+.camera-overlay-btn.on {
+  background: #fbbf24;
+  color: #1a1205;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+}
+
+.camera-zoom-pill {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(10, 16, 20, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #e9edef;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.camera-zoom-pill:hover {
+  background: rgba(10, 16, 20, 0.78);
+}
+
+.camera-zoom-pill.zoomed {
+  color: #4ade9f;
+}
+
+.camera-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px 4px;
+}
+
+.camera-round {
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.camera-round:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.camera-round:active {
+  transform: scale(0.92);
+}
+
+.camera-shutter {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+
+.camera-shutter span {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.camera-shutter:hover {
+  border-color: var(--accent-green);
+}
+
+.camera-shutter:hover span {
+  background: #eafff9;
+}
+
+.camera-shutter:active {
+  transform: scale(0.94);
+}
+
+/* En pantallas angostas el panel se vuelve una hoja inferior */
+@media (max-width: 760px), (max-height: 560px) {
+  .camera-dock-backdrop {
+    background: rgba(3, 8, 12, 0.42);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .camera-dock {
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    height: min(80vh, 620px);
+    border-radius: 26px;
+    animation: dock-up 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .camera-stage {
+    min-height: 0;
+  }
+}
+
+@keyframes photo-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes photo-pop {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes dock-in {
+  from { opacity: 0; transform: translateX(30px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes dock-up {
+  from { opacity: 0; transform: translateY(34px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes shutter-flash {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 214, 143, 0.55); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(0, 214, 143, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-modal,
+  .photo-sheet,
+  .camera-dock,
+  .camera-dock-backdrop,
+  .camera-live-dot {
+    animation: none !important;
+  }
+}
