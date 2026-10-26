@@ -89,6 +89,7 @@
 
     <form class="chat-input-bar" id="send-form">
       <input type="file" id="file-input" accept="image/*" class="hidden">
+      <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
       <input type="file" id="card-file-input" accept=".msncard,.json" class="hidden">
       <button type="button" class="icon-btn" id="btn-send-card" title="Enviar presentación 🎁">
         <i class="fa-solid fa-gift"></i>
@@ -135,6 +136,26 @@
     </div>
   </div>
 
+  <!-- Elegir origen de la foto (cámara o galería) -->
+  <div id="photo-source-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="game-head">
+        <h3>📷 Enviar foto</h3>
+        <button class="icon-btn" id="photo-source-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="profiles-grid">
+        <button type="button" class="profile-btn" id="photo-camera">
+          <div class="avatar">📷</div>
+          <span>Tomar foto</span>
+        </button>
+        <button type="button" class="profile-btn" id="photo-gallery">
+          <div class="avatar">🖼️</div>
+          <span>Elegir de la galería</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Visor de fotos -->
   <div id="lightbox-modal" class="lightbox-modal hidden">
     <button class="lightbox-close" id="lightbox-close">&times;</button>
@@ -146,6 +167,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=chat-nativo-20261026"></script>
+  <script type="module" src="js/app.js?v=fotos-camara-20261026"></script>
 </body>
 </html>

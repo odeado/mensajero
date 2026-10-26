@@ -67,6 +67,8 @@ const btnSendCard = $("btn-send-card");
 const cardFileInput = $("card-file-input");
 const emojiPanel = $("emoji-panel");
 const fileInput = $("file-input");
+const cameraInput = $("camera-input");
+const photoModal = $("photo-source-modal");
 const lightbox = $("lightbox-modal");
 const lightboxImg = $("lightbox-img");
 const lightboxDownload = $("lightbox-download");
@@ -432,11 +434,34 @@ sendForm.addEventListener("submit", (e) => {
   sendMessage({ type: "text", text });
 });
 
-// Foto (comprimida a base64)
-btnAttach.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", async () => {
-  const file = fileInput.files[0];
-  fileInput.value = "";
+// Foto (comprimida a base64) — desde cámara o galería
+function pickPhoto(inputEl) {
+  inputEl.click();
+}
+
+btnAttach.addEventListener("click", () => {
+  // En el APK el menú cámara/galería lo muestra la capa nativa.
+  if (window.MensajeroNative) return pickPhoto(fileInput);
+  photoModal.classList.remove("hidden");
+});
+
+$("photo-source-close").addEventListener("click", () => photoModal.classList.add("hidden"));
+$("photo-camera").addEventListener("click", () => {
+  photoModal.classList.add("hidden");
+  pickPhoto(cameraInput);
+});
+$("photo-gallery").addEventListener("click", () => {
+  photoModal.classList.add("hidden");
+  pickPhoto(fileInput);
+});
+photoModal.addEventListener("click", (e) => {
+  if (e.target === photoModal) photoModal.classList.add("hidden");
+});
+
+async function handlePhotoInput(e) {
+  const inputEl = e.currentTarget;
+  const file = inputEl.files[0];
+  inputEl.value = "";
   if (!file || !me) return;
   if (!file.type.startsWith("image/")) return toast("Solo se pueden enviar fotos.");
   try {
@@ -448,7 +473,10 @@ fileInput.addEventListener("change", async () => {
     console.error(err);
     toast("No se pudo leer esa foto.");
   }
-});
+}
+
+fileInput.addEventListener("change", handlePhotoInput);
+cameraInput.addEventListener("change", handlePhotoInput);
 
 async function compressImage(file) {
   const img = await loadImage(file);

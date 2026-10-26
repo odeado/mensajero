@@ -10,6 +10,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.graphics.Color;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -47,7 +50,8 @@ public class ChatMonitorService extends Service {
     static final long ONLINE_WINDOW_MS = 75_000; // igual que la web
 
     static final String CH_STATUS = "chat_estado";
-    static final String CH_MSG = "chat_mensajes";
+    static final String CH_MSG = "chat_mensajes_v2";
+    static final String CH_MSG_OLD = "chat_mensajes";
     static final int NOTIF_STATUS_ID = 1, NOTIF_MSG_ID = 2;
     static final String KEY_REPLY = "respuesta";
     static final String PREFS = "chat_monitor";
@@ -176,7 +180,9 @@ public class ChatMonitorService extends Service {
             publish("🔒 Inicia sesión en la app", "Abre Mensajero e ingresa tu clave una vez para recibir avisos", C_GRAY);
             return;
         }
-        wakeLock.acquire(30_000);
+        // Con la app minimizada o la pantalla apagada hay que mantener la CPU despierta
+        // hasta el siguiente sondeo; si el chat está a la vista, no hace falta.
+        if (!appVisible) wakeLock.acquire(POLL_MS + 15_000);
         SharedPreferences p = prefs(this);
         try {
             // 1) Mensajes nuevos (de cualquier chat, cada uno con su chatId)
@@ -248,7 +254,9 @@ public class ChatMonitorService extends Service {
         } catch (Exception e) {
             publish("📶 Sin conexión · reintentando", "No se pudo revisar el chat", C_GRAY);
         } finally {
-            if (wakeLock.isHeld()) wakeLock.release();
+            // En segundo plano el bloqueo se mantiene hasta el próximo sondeo (se renueva allí);
+            // con la app a la vista se libera de inmediato.
+            if (appVisible && wakeLock.isHeld()) wakeLock.release();
         }
     }
 
@@ -314,6 +322,8 @@ public class ChatMonitorService extends Service {
                 .setContentTitle(info.partnerAvatar + " " + info.partnerName)
                 .setColor(C_PINK)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setContentIntent(openAppIntent(c))
                 .setAutoCancel(true)
@@ -325,6 +335,26 @@ public class ChatMonitorService extends Service {
         ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).notify(id, n);
     }
 
+    /** Aviso de prueba (menú de la app) para comprobar que suena y vibra. */
+    public static void showTest(Context c) {
+        ChatApi.ChatInfo info = ChatApi.activePartner(c);
+        Uri sonido = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        Notification n = new NotificationCompat.Builder(c, CH_MSG)
+                .setSmallIcon(R.drawable.ic_stat_chat)
+                .setContentTitle(info.partnerAvatar + " " + info.partnerName)
+                .setContentText("Así suena y vibra el aviso 🔔")
+                .setColor(C_PINK)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setSound(sonido)
+                .setContentIntent(openAppIntent(c))
+                .setAutoCancel(true)
+                .build();
+        ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).notify(999, n);
+    }
+
     static void createChannels(Context c) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = c.getSystemService(NotificationManager.class);
@@ -333,12 +363,24 @@ public class ChatMonitorService extends Service {
         st.setShowBadge(false);
         nm.createNotificationChannel(st);
 
+        // El canal anterior se creó sin sonido explícito y Android ya no permite cambiarlo:
+        // se elimina y se crea un canal nuevo (v2) con sonido y vibración.
+        nm.deleteNotificationChannel(CH_MSG_OLD);
+
+        Uri sonido = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        AudioAttributes attrs = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+
         NotificationChannel msg = new NotificationChannel(CH_MSG, "Mensajes", NotificationManager.IMPORTANCE_HIGH);
-        msg.setDescription("Aviso por cada mensaje nuevo, con respuesta rápida");
+        msg.setDescription("Aviso por cada mensaje nuevo, con sonido y respuesta rápida");
+        if (sonido != null) msg.setSound(sonido, attrs);
         msg.enableVibration(true);
         msg.setVibrationPattern(new long[]{0, 120, 60, 120});
         msg.enableLights(true);
         msg.setLightColor(C_PINK);
+        msg.setShowBadge(true);
         nm.createNotificationChannel(msg);
     }
 

@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
 import android.webkit.JavascriptInterface;
@@ -30,17 +31,23 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_NOTIF = 101;
     private static final int REQ_FILE = 102;
+    private static final int REQ_GALLERY = 103;
+    private static final int REQ_CAMERA = 104;
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private TextView statusBar;
     private ValueCallback<Uri[]> fileCallback;
+    private Uri cameraOutputUri;
     private long pausedAt = 0;
 
     @Override
@@ -131,21 +138,91 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
-            // Para poder enviar fotos desde el chat (botón 📷 de la web)
+            // Fotos: elegir entre cámara y galería. Otros archivos (.msncard) usan el selector normal.
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
+
+                if (wantsImage(params)) {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Enviar foto")
+                            .setItems(new String[]{"📷 Tomar foto", "🖼️ Elegir de la galería"}, (d, which) -> {
+                                if (which == 0) launchCamera();
+                                else launchGallery();
+                            })
+                            .setNegativeButton("Cancelar", (d, w) -> cancelFileChooser())
+                            .setOnCancelListener(d -> cancelFileChooser())
+                            .show();
+                    return true;
+                }
+
                 try {
                     startActivityForResult(params.createIntent(), REQ_FILE);
                 } catch (Exception e) {
-                    fileCallback = null;
-                    Toast.makeText(MainActivity.this, "No se pudo abrir la galería", Toast.LENGTH_SHORT).show();
+                    cancelFileChooser();
+                    Toast.makeText(MainActivity.this, "No se pudo abrir el selector de archivos", Toast.LENGTH_SHORT).show();
                     return false;
                 }
                 return true;
             }
         });
+    }
+
+    /** true si el selector que abrió la web es para fotos (y no para .msncard/.json). */
+    private boolean wantsImage(WebChromeClient.FileChooserParams params) {
+        String[] types = params.getAcceptTypes();
+        if (types == null || types.length == 0) return true;
+        boolean imagen = false;
+        for (String t : types) {
+            if (t == null) continue;
+            String v = t.trim().toLowerCase();
+            if (v.isEmpty()) continue;
+            if (v.contains("msncard") || v.contains("json")) return false;
+            if (v.startsWith("image/") || v.equals("*/*")) imagen = true;
+        }
+        return imagen;
+    }
+
+    private void launchCamera() {
+        try {
+            File dir = new File(getCacheDir(), "fotos");
+            if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("sin carpeta");
+            File foto = new File(dir, "foto_" + System.currentTimeMillis() + ".jpg");
+            cameraOutputUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", foto);
+            Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            i.putExtra(MediaStore.EXTRA_OUTPUT, cameraOutputUri);
+            i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(i, REQ_CAMERA);
+        } catch (Exception e) {
+            cameraOutputUri = null;
+            cancelFileChooser();
+            Toast.makeText(this, "No se pudo abrir la cámara", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void launchGallery() {
+        try {
+            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("image/*");
+            startActivityForResult(i, REQ_GALLERY);
+        } catch (Exception e) {
+            cancelFileChooser();
+            Toast.makeText(this, "No se pudo abrir la galería", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void cancelFileChooser() {
+        finishFileChooser(null);
+        cameraOutputUri = null;
+    }
+
+    private void finishFileChooser(Uri[] result) {
+        if (fileCallback != null) {
+            fileCallback.onReceiveValue(result);
+            fileCallback = null;
+        }
     }
 
     // Puente con la web: mantiene sincronizado el chat activo y los avisos nativos.
@@ -168,7 +245,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshMonitor() {
         if (ChatApi.hasSession(this) && ChatMonitorService.isEnabled(this)) {
-            ChatMonitorService.refresh(this);
+            try {
+                ChatMonitorService.refresh(this);
+            } catch (Exception ignored) {
+                // Android 12+ puede bloquear el inicio en segundo plano; se reintenta al abrir la app.
+            }
         }
     }
 
@@ -196,9 +277,32 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_FILE && fileCallback != null) {
-            fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
-            fileCallback = null;
+
+        if (requestCode == REQ_CAMERA) {
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && cameraOutputUri != null) result = new Uri[]{cameraOutputUri};
+            finishFileChooser(result);
+            cameraOutputUri = null;
+            return;
+        }
+
+        if (requestCode == REQ_GALLERY) {
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && data != null) {
+                if (data.getClipData() != null) {
+                    int n = data.getClipData().getItemCount();
+                    result = new Uri[n];
+                    for (int i = 0; i < n; i++) result[i] = data.getClipData().getItemAt(i).getUri();
+                } else if (data.getData() != null) {
+                    result = new Uri[]{data.getData()};
+                }
+            }
+            finishFileChooser(result);
+            return;
+        }
+
+        if (requestCode == REQ_FILE) {
+            finishFileChooser(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
         }
     }
 
@@ -250,7 +354,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void showOptions() {
         boolean on = ChatMonitorService.isEnabled(this);
-        String[] items = {on ? "Desactivar avisos" : "Activar avisos", "Cerrar sesión de los avisos"};
+        boolean optimizado = isBatteryOptimized();
+        String[] items = {
+                on ? "Desactivar avisos" : "Activar avisos",
+                "Probar sonido del aviso",
+                optimizado ? "Permitir avisos con pantalla apagada" : "Segundo plano: ya está permitido ✓",
+                "Cerrar sesión de los avisos"
+        };
         new AlertDialog.Builder(this)
                 .setTitle("Avisos del chat")
                 .setItems(items, (d, which) -> {
@@ -263,6 +373,10 @@ public class MainActivity extends AppCompatActivity {
                                 statusBar.setBackgroundColor(color);
                             });
                         }
+                    } else if (which == 1) {
+                        ChatMonitorService.showTest(this);
+                    } else if (which == 2) {
+                        if (optimizado) pedirBateria();
                     } else {
                         ChatMonitorService.stop(this);
                         ChatApi.signOut(this);
@@ -272,6 +386,22 @@ public class MainActivity extends AppCompatActivity {
                     }
                 })
                 .show();
+    }
+
+    /** true si el sistema todavía puede dormir la app y retrasar los avisos. */
+    private boolean isBatteryOptimized() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        return !pm.isIgnoringBatteryOptimizations(getPackageName());
+    }
+
+    private void pedirBateria() {
+        try {
+            startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + getPackageName())));
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        }
     }
 
     private void startMonitoringIfEnabled() {
@@ -300,23 +430,15 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("BatteryLife")
     private void askBatteryOptimizationOnce() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        if (!isBatteryOptimized()) return;
         SharedPreferences p = ChatMonitorService.prefs(this);
         if (p.getBoolean("pidioBateria", false)) return;
-        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-        if (pm.isIgnoringBatteryOptimizations(getPackageName())) return;
         p.edit().putBoolean("pidioBateria", true).apply();
         new AlertDialog.Builder(this)
                 .setTitle("Mantener los avisos activos")
-                .setMessage("Para que los mensajes lleguen aunque el teléfono esté en reposo, permite que Mensajero funcione sin restricción de batería.")
-                .setPositiveButton("Permitir", (d, w) -> {
-                    try {
-                        startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                Uri.parse("package:" + getPackageName())));
-                    } catch (Exception e) {
-                        startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
-                    }
-                })
+                .setMessage("Para que los mensajes lleguen y suenen aunque la app esté minimizada o la pantalla apagada, "
+                        + "permite que Mensajero funcione sin restricción de batería.")
+                .setPositiveButton("Permitir", (d, w) -> pedirBateria())
                 .setNegativeButton("Ahora no", null)
                 .show();
     }

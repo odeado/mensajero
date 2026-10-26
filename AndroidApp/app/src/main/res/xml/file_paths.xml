@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fotos temporales tomadas con la cámara antes de enviarlas al chat -->
+    <cache-path name="fotos" path="fotos/" />
+</paths>

@@ -29,9 +29,21 @@ URL: `https://odeado.github.io/mensajero/`
 - ❤️ Reacciones: mantener apretado (o doble clic) un mensaje.
 - 🦄 Avatar: tocar tu nombre arriba a la derecha.
 - 🎮 Juegos en tiempo real: Gato, 4 en línea, Damas, Cachipún y Jenga (botón 🎮 junto a la cámara).
+- 📷 Fotos: el botón de cámara permite **Tomar foto** o **Elegir de la galería** (en el APK).
 - 🔔 Notificaciones: tocar la campana. Llegan mientras la app está abierta o en segundo plano.
   En iPhone solo funcionan si la app se agregó a la pantalla de inicio.
 - 📲 Instalable como app (ícono propio).
+
+## Avisos con sonido en el APK
+- El APK usa el canal de notificación **Mensajes** con sonido y vibración del sistema.
+- Para que lleguen y suenen con la app minimizada o la pantalla apagada:
+  mantener presionada la barra verde superior → **Permitir avisos con pantalla apagada**.
+- En Xiaomi/Redmi además hay que activar **Autostart**, poner **Sin restricciones** en el ahorro de batería
+  y bloquear la app en la lista de recientes.
+- Para comprobar el sonido: mantener presionada la barra superior → **Probar sonido del aviso**.
+- Si no suena, revisar que el teléfono no esté en silencio/No molestar y que
+  Ajustes → Apps → Mensajero → Notificaciones → **Mensajes** tenga sonido activado.
+
 
 ## Seguridad
 - La `apiKey` de Firebase es pública por diseño; la protección real está en `firestore.rules`.
