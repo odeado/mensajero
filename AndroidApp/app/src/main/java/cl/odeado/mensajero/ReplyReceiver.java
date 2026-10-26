@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.RemoteInput;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 /** Respuesta rápida y "Marcar leído" desde la notificación, sin abrir la app. */
 public class ReplyReceiver extends BroadcastReceiver {
@@ -30,18 +31,25 @@ public class ReplyReceiver extends BroadcastReceiver {
             if (cs != null) text = cs.toString().trim();
         }
         final String reply = text;
+        String chatId = intent.getStringExtra("chatId");
+        if (chatId == null || chatId.isEmpty()) chatId = ChatApi.activeChatId(c);
+        final String targetChat = chatId;
         final PendingResult pr = goAsync();
         new Thread(() -> {
             SharedPreferences p = ChatMonitorService.prefs(c);
             try {
                 JSONArray pend = new JSONArray(p.getString("pendientes", "[]"));
                 if (ACTION_REPLY.equals(action) && reply != null && !reply.isEmpty()) {
-                    ChatApi.sendText(c, reply);
+                    ChatApi.sendText(c, reply, targetChat);
                 }
                 for (int i = 0; i < pend.length(); i++) {
-                    try { ChatApi.markRead(c, pend.getJSONObject(i).getString("id")); } catch (Exception ignored) {}
+                    JSONObject o = pend.optJSONObject(i);
+                    if (o == null) continue;
+                    String id = o.optString("chatId", ChatApi.DEFAULT_CHAT);
+                    if (!targetChat.equals(id)) continue;
+                    try { ChatApi.markRead(c, o.getString("id")); } catch (Exception ignored) {}
                 }
-                ChatMonitorService.clearPending(c);
+                ChatMonitorService.clearPending(c, targetChat);
             } catch (Exception e) {
                 // Avisar que no se pudo enviar, sin perder los mensajes pendientes
                 Notification n = new NotificationCompat.Builder(c, ChatMonitorService.CH_MSG)

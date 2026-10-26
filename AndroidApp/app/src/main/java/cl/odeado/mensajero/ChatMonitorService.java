@@ -26,15 +26,18 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
- * Servicio en primer plano: cada 20 s revisa si la hija escribió y su estado
- * (en línea / escribiendo / última vez). Notificación fija con el estado y aviso
- * tipo chat por cada mensaje, con respuesta rápida desde la notificación.
+ * Servicio en primer plano: cada 20 s revisa si escribió la otra persona y su estado
+ * (en línea / escribiendo / última vez) en el chat que se está viendo. Notificación fija
+ * con el estado y aviso tipo chat por cada mensaje, con respuesta rápida.
  */
 public class ChatMonitorService extends Service {
 
@@ -100,10 +103,33 @@ public class ChatMonitorService extends Service {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE);
     }
 
-    /** Al abrir la app o responder: se borran los mensajes pendientes de la notificación. */
+    /** Al abrir la app: se borran todos los mensajes pendientes de las notificaciones. */
     public static void clearPending(Context c) {
         prefs(c).edit().putString("pendientes", "[]").apply();
-        ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).cancel(NOTIF_MSG_ID);
+        NotificationManager nm = (NotificationManager) c.getSystemService(NOTIFICATION_SERVICE);
+        nm.cancel(NOTIF_MSG_ID);
+        for (ChatApi.ChatInfo ci : ChatApi.chats(c)) nm.cancel(msgNotifId(ci.id));
+    }
+
+    /** Se borran solo los pendientes y la notificación de un chat concreto. */
+    public static void clearPending(Context c, String chatId) {
+        JSONArray keep = new JSONArray();
+        try {
+            JSONArray pend = new JSONArray(prefs(c).getString("pendientes", "[]"));
+            for (int i = 0; i < pend.length(); i++) {
+                JSONObject o = pend.optJSONObject(i);
+                String id = o == null ? "" : o.optString("chatId", ChatApi.DEFAULT_CHAT);
+                if (!chatId.equals(id)) keep.put(o);
+            }
+        } catch (Exception ignored) {}
+        prefs(c).edit().putString("pendientes", keep.toString()).apply();
+        ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).cancel(msgNotifId(chatId));
+    }
+
+    /** Identificador estable de la notificación de mensajes de cada chat. */
+    static int msgNotifId(String chatId) {
+        if (chatId == null || ChatApi.DEFAULT_CHAT.equals(chatId)) return NOTIF_MSG_ID;
+        return NOTIF_MSG_ID + 1 + Math.abs(chatId.hashCode() % 100);
     }
 
     // ---------- Ciclo de vida ----------
@@ -153,7 +179,7 @@ public class ChatMonitorService extends Service {
         wakeLock.acquire(30_000);
         SharedPreferences p = prefs(this);
         try {
-            // 1) Mensajes nuevos
+            // 1) Mensajes nuevos (de cualquier chat, cada uno con su chatId)
             String since = p.getString("ultimoTs", "");
             if (since.isEmpty()) {
                 since = ChatApi.nowIso();               // primera vez: no avisar el historial
@@ -167,35 +193,51 @@ public class ChatMonitorService extends Service {
                 since = m.createdAt;
                 if (m.senderUid.equals(me)) continue;
                 if (appVisible) continue;           // la está viendo en pantalla
+                String chatId = m.chatId == null || m.chatId.isEmpty() ? ChatApi.DEFAULT_CHAT : m.chatId;
+                if (ChatApi.chat(this, chatId) == null) continue; // chat que no es de este usuario
                 pend.put(new JSONObject().put("id", m.id).put("text", m.preview())
-                        .put("ts", ChatApi.parseTs(m.createdAt)));
+                        .put("ts", ChatApi.parseTs(m.createdAt)).put("chatId", chatId));
                 hayNuevos = true;
             }
             while (pend.length() > 25) pend.remove(0);
             p.edit().putString("ultimoTs", since).putString("pendientes", pend.toString()).apply();
             if (hayNuevos) showMessages(this, pend, false);
 
-            // 2) Estado de la hija
-            ChatApi.Status st = ChatApi.partnerStatus(this);
-            String avatar = st != null && !st.avatar.isEmpty() ? st.avatar : ChatApi.PARTNER_AVATAR;
+            // 2) Estado del partner del chat que se está viendo (Amor, Hija, ...)
+            ChatApi.ChatInfo activo = ChatApi.activePartner(this);
+            ChatApi.Status st = ChatApi.partnerStatus(this, activo);
+            String avatar = st != null && !st.avatar.isEmpty() ? st.avatar : activo.partnerAvatar;
             String titulo;
             int color;
             boolean online = st != null && st.online && System.currentTimeMillis() - st.lastSeenMs < ONLINE_WINDOW_MS;
             if (online && st.typing) {
-                titulo = avatar + " " + ChatApi.PARTNER_NAME + " · ✍️ está escribiendo...";
+                titulo = avatar + " " + activo.partnerName + " · ✍️ está escribiendo...";
                 color = C_PINK;
             } else if (online) {
-                titulo = avatar + " " + ChatApi.PARTNER_NAME + " · 🟢 En línea";
+                titulo = avatar + " " + activo.partnerName + " · 🟢 En línea";
                 color = C_OK;
             } else {
-                titulo = avatar + " " + ChatApi.PARTNER_NAME + " · últ. vez " + lastSeen(st == null ? 0 : st.lastSeenMs);
+                titulo = avatar + " " + activo.partnerName + " · últ. vez " + lastSeen(st == null ? 0 : st.lastSeenMs);
                 color = C_GRAY;
             }
+            // El texto se refiere al chat que se está viendo; si hay pendientes en el otro chat, se avisa aparte.
+            int pendActivo = 0;
+            JSONObject ultimoActivo = null;
+            for (int i = 0; i < pend.length(); i++) {
+                JSONObject o = pend.optJSONObject(i);
+                if (o == null) continue;
+                if (activo.id.equals(o.optString("chatId", ChatApi.DEFAULT_CHAT))) {
+                    pendActivo++;
+                    ultimoActivo = o;
+                }
+            }
             String texto;
-            if (pend.length() > 0) {
-                JSONObject last = pend.getJSONObject(pend.length() - 1);
-                texto = "💬 " + pend.length() + (pend.length() == 1 ? " mensaje sin leer" : " mensajes sin leer")
-                        + " · " + last.optString("text");
+            if (pendActivo > 0) {
+                texto = "💬 " + pendActivo + (pendActivo == 1 ? " mensaje sin leer" : " mensajes sin leer")
+                        + " · " + ultimoActivo.optString("text");
+            } else if (pend.length() > 0) {
+                int otros = pend.length();
+                texto = "💬 " + otros + (otros == 1 ? " mensaje en otro chat" : " mensajes en otro chat");
             } else {
                 texto = "Sin mensajes nuevos";
             }
@@ -227,31 +269,49 @@ public class ChatMonitorService extends Service {
     // ---------- Notificación de mensajes (estilo chat + respuesta rápida) ----------
     static void showMessages(Context c, JSONArray pend, boolean silent) throws Exception {
         if (pend.length() == 0) return;
-        Person yo = new Person.Builder().setName("Tú").build();
-        Person hija = new Person.Builder().setName(ChatApi.PARTNER_AVATAR + " " + ChatApi.PARTNER_NAME).setKey("hija").build();
-        NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(yo);
+        Map<String, List<JSONObject>> porChat = new LinkedHashMap<>();
         for (int i = 0; i < pend.length(); i++) {
             JSONObject o = pend.getJSONObject(i);
-            style.addMessage(o.optString("text"), o.optLong("ts", System.currentTimeMillis()), hija);
+            String chatId = o.optString("chatId", ChatApi.DEFAULT_CHAT);
+            porChat.computeIfAbsent(chatId, k -> new ArrayList<>()).add(o);
+        }
+        for (Map.Entry<String, List<JSONObject>> e : porChat.entrySet()) {
+            showChatMessages(c, e.getKey(), e.getValue(), silent);
+        }
+    }
+
+    private static void showChatMessages(Context c, String chatId, List<JSONObject> msgs, boolean silent) throws Exception {
+        ChatApi.ChatInfo info = ChatApi.chat(c, chatId);
+        if (info == null) return;
+
+        Person yo = new Person.Builder().setName("Tú").build();
+        Person partner = new Person.Builder()
+                .setName(info.partnerAvatar + " " + info.partnerName)
+                .setKey(chatId).build();
+        NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(yo);
+        for (JSONObject o : msgs) {
+            style.addMessage(o.optString("text"), o.optLong("ts", System.currentTimeMillis()), partner);
         }
 
-        RemoteInput ri = new RemoteInput.Builder(KEY_REPLY).setLabel("Responder a " + ChatApi.PARTNER_NAME).build();
+        int id = msgNotifId(chatId);
+        RemoteInput ri = new RemoteInput.Builder(KEY_REPLY).setLabel("Responder a " + info.partnerName).build();
         int mutable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0;
-        PendingIntent replyPi = PendingIntent.getBroadcast(c, 10,
-                new Intent(c, ReplyReceiver.class).setAction(ReplyReceiver.ACTION_REPLY),
+        PendingIntent replyPi = PendingIntent.getBroadcast(c, 10 + id,
+                new Intent(c, ReplyReceiver.class).setAction(ReplyReceiver.ACTION_REPLY).putExtra("chatId", chatId),
                 PendingIntent.FLAG_UPDATE_CURRENT | mutable);
         NotificationCompat.Action reply = new NotificationCompat.Action.Builder(0, "Responder", replyPi)
                 .addRemoteInput(ri)
                 .setAllowGeneratedReplies(true)
                 .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
                 .build();
-        PendingIntent readPi = PendingIntent.getBroadcast(c, 11,
-                new Intent(c, ReplyReceiver.class).setAction(ReplyReceiver.ACTION_READ),
+        PendingIntent readPi = PendingIntent.getBroadcast(c, 200 + id,
+                new Intent(c, ReplyReceiver.class).setAction(ReplyReceiver.ACTION_READ).putExtra("chatId", chatId),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Notification n = new NotificationCompat.Builder(c, CH_MSG)
                 .setSmallIcon(R.drawable.ic_stat_chat)
                 .setStyle(style)
+                .setContentTitle(info.partnerAvatar + " " + info.partnerName)
                 .setColor(C_PINK)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -262,13 +322,13 @@ public class ChatMonitorService extends Service {
                 .addAction(reply)
                 .addAction(0, "Marcar leído", readPi)
                 .build();
-        ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).notify(NOTIF_MSG_ID, n);
+        ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).notify(id, n);
     }
 
     static void createChannels(Context c) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = c.getSystemService(NotificationManager.class);
-        NotificationChannel st = new NotificationChannel(CH_STATUS, "Estado de " + ChatApi.PARTNER_NAME, NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel st = new NotificationChannel(CH_STATUS, "Estado del chat", NotificationManager.IMPORTANCE_LOW);
         st.setDescription("Notificación fija: en línea, escribiendo o última vez");
         st.setShowBadge(false);
         nm.createNotificationChannel(st);

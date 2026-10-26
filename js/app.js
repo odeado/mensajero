@@ -200,6 +200,24 @@ logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
 });
 
+// ---------- Avisos nativos de la app Android ----------
+// La notificación fija del APK necesita saber con quién estás chateando para
+// mostrar el nombre y el estado correctos (Hija o Amor).
+function syncNativeChat() {
+  const bridge = window.MensajeroNative;
+  if (!bridge || !me || !currentChatId) return;
+  try {
+    bridge.configure(JSON.stringify(availableChats.map((c) => ({
+      id: c.id,
+      partnerName: c.partnerName,
+      partnerAvatar: cachedAvatar(c.partnerEmail),
+      partnerEmail: c.partnerEmail
+    }))), currentChatId);
+  } catch (e) {
+    console.error("No se pudo sincronizar el chat con Android", e);
+  }
+}
+
 // ---------- Selector de Chat (si tiene más de 1) ----------
 function selectChat(chatId) {
   const target = availableChats.find((c) => c.id === chatId);
@@ -215,6 +233,7 @@ function selectChat(chatId) {
   };
 
   startChat();
+  syncNativeChat();
 }
 
 if (switchChatBtn) {

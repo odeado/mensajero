@@ -44,8 +44,7 @@ public class ChatApi {
     static final String DOCS = "projects/" + PROJECT + "/databases/(default)/documents";
     static final String BASE = "https://firestore.googleapis.com/v1/" + DOCS;
     static final String MY_EMAIL = "papa@chat-familia.local";
-    static final String PARTNER_NAME = "Hija";
-    static final String PARTNER_AVATAR = "👧";
+    static final String DEFAULT_CHAT = "papa_hija";
     static final String WEB_URL = "https://odeado.github.io/mensajero/";
 
     public static class AuthException extends IOException {
@@ -66,6 +65,18 @@ public class ChatApi {
         public boolean online, typing;
         public long lastSeenMs;
         public String avatar = "";
+    }
+
+    /** Un chat 1-a-1: la web envía esta información para que los avisos muestren al partner correcto. */
+    public static class ChatInfo {
+        public final String id, partnerName, partnerAvatar, partnerEmail;
+
+        ChatInfo(String id, String partnerName, String partnerAvatar, String partnerEmail) {
+            this.id = id;
+            this.partnerName = partnerName;
+            this.partnerAvatar = partnerAvatar;
+            this.partnerEmail = partnerEmail;
+        }
     }
 
     static String gameName(String g) {
@@ -138,6 +149,73 @@ public class ChatApi {
         prefs(c).edit().putString("refresh_enc", encrypt(refresh)).putString("uid", uid).apply();
     }
 
+    // ------------------------------------------------------------------ chats
+    private static final String KEY_CHATS = "chats_json";
+    private static final String KEY_ACTIVE_CHAT = "chat_activo";
+
+    /** La web envía aquí sus chats (con el nombre/avatar del partner) al abrir o cambiar de chat. */
+    public static synchronized void configureChats(Context c, String json) {
+        if (json == null || json.trim().isEmpty()) return;
+        try { new JSONArray(json); } catch (Exception e) { return; }
+        prefs(c).edit().putString(KEY_CHATS, json).apply();
+    }
+
+    /** Chat que el usuario está viendo ahora mismo en la app. */
+    public static synchronized void setActiveChat(Context c, String chatId) {
+        if (chatId == null || chatId.trim().isEmpty()) return;
+        if (chat(c, chatId) == null) return;
+        prefs(c).edit().putString(KEY_ACTIVE_CHAT, chatId).apply();
+    }
+
+    public static String activeChatId(Context c) {
+        String id = prefs(c).getString(KEY_ACTIVE_CHAT, DEFAULT_CHAT);
+        if (chat(c, id) != null) return id;
+        List<ChatInfo> todos = chats(c);
+        return todos.isEmpty() ? DEFAULT_CHAT : todos.get(0).id;
+    }
+
+    public static ChatInfo activePartner(Context c) {
+        ChatInfo ci = chat(c, activeChatId(c));
+        if (ci != null) return ci;
+        List<ChatInfo> todos = chats(c);
+        return todos.isEmpty() ? defaults().get(0) : todos.get(0);
+    }
+
+    public static ChatInfo chat(Context c, String chatId) {
+        if (chatId == null) return null;
+        for (ChatInfo ci : chats(c)) if (ci.id.equals(chatId)) return ci;
+        return null;
+    }
+
+    public static List<ChatInfo> chats(Context c) {
+        List<ChatInfo> out = new ArrayList<>();
+        String json = prefs(c).getString(KEY_CHATS, "");
+        if (!json.isEmpty()) {
+            try {
+                JSONArray arr = new JSONArray(json);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject o = arr.optJSONObject(i);
+                    if (o == null) continue;
+                    String id = o.optString("id", "");
+                    if (id.isEmpty()) continue;
+                    out.add(new ChatInfo(id,
+                            o.optString("partnerName", ""),
+                            o.optString("partnerAvatar", ""),
+                            o.optString("partnerEmail", "")));
+                }
+            } catch (Exception ignored) {}
+        }
+        return out.isEmpty() ? defaults() : out;
+    }
+
+    /** Valores de respaldo mientras la web no ha enviado su configuración. */
+    private static List<ChatInfo> defaults() {
+        List<ChatInfo> out = new ArrayList<>();
+        out.add(new ChatInfo("papa_hija", "Hija", "👧", "hija@chat-familia.local"));
+        out.add(new ChatInfo("papa_amor", "Amor", "❤️", "amor@chat-familia.local"));
+        return out;
+    }
+
     // ------------------------------------------------------------------ mensajes
     /** Mensajes con createdAt posterior a "sinceIso", del más antiguo al más nuevo (sin las fotos en base64). */
     public static List<Message> messagesSince(Context c, String sinceIso) throws Exception {
@@ -152,7 +230,7 @@ public class ChatApi {
                         .put("value", new JSONObject().put("timestampValue", sinceIso))))
                 .put("orderBy", new JSONArray().put(new JSONObject()
                         .put("field", field("createdAt")).put("direction", "ASCENDING")))
-                .put("limit", 30));
+                .put("limit", 100));
         String raw = requestRaw("POST", BASE + ":runQuery", q.toString(), "application/json", token(c));
         JSONArray arr = new JSONArray(raw);
         List<Message> out = new ArrayList<>();
@@ -175,32 +253,55 @@ public class ChatApi {
         return out;
     }
 
-    /** Estado (en línea / escribiendo / última vez) de la otra persona. */
-    public static Status partnerStatus(Context c) throws Exception {
+    /** Estado (en línea / escribiendo / última vez) del partner del chat indicado. */
+    public static Status partnerStatus(Context c, ChatInfo partner) throws Exception {
         JSONObject r = request("GET", BASE + "/status", null, null, token(c));
         JSONArray docs = r.optJSONArray("documents");
         String me = myUid(c);
         if (docs == null) return null;
+
+        List<JSONObject> candidatos = new ArrayList<>();
+        JSONObject elegido = null;
+        boolean hayEmails = false;
         for (int i = 0; i < docs.length(); i++) {
             JSONObject d = docs.getJSONObject(i);
             String name = d.getString("name");
             if (name.endsWith("/" + me)) continue;
             JSONObject f = d.optJSONObject("fields");
-            if (f == null) return new Status();
-            Status s = new Status();
-            s.online = "true".equals(str(f, "online"));
-            s.typing = "true".equals(str(f, "typing"));
-            s.avatar = str(f, "avatar");
-            s.lastSeenMs = parseTs(str(f, "lastSeen"));
-            return s;
+            if (f == null) continue;
+            candidatos.add(f);
+            String email = str(f, "email");
+            if (!email.isEmpty()) hayEmails = true;
+            if (partner != null && !partner.partnerEmail.isEmpty()
+                    && partner.partnerEmail.equalsIgnoreCase(email)) {
+                elegido = f;
+                break;
+            }
         }
-        return null;
+        // Respaldo para estados antiguos sin email: coincidencia por chat activo o único candidato.
+        if (elegido == null && partner != null) {
+            for (JSONObject f : candidatos) {
+                if (partner.id.equals(str(f, "activeChat"))) { elegido = f; break; }
+            }
+        }
+        if (elegido == null && !hayEmails && candidatos.size() == 1
+                && str(candidatos.get(0), "activeChat").isEmpty()) {
+            elegido = candidatos.get(0); // estado muy antiguo, sin email ni chat: único candidato
+        }
+        if (elegido == null) return null; // el partner aún no tiene estado: no mostrar a otra persona
+
+        Status s = new Status();
+        s.online = "true".equals(str(elegido, "online"));
+        s.typing = "true".equals(str(elegido, "typing"));
+        s.avatar = str(elegido, "avatar");
+        s.lastSeenMs = parseTs(str(elegido, "lastSeen"));
+        return s;
     }
 
     /** Envía un mensaje de texto (mismas reglas que la web: createdAt = hora del servidor). */
     public static void sendText(Context c, String text, String chatId) throws Exception {
         String id = autoId();
-        if (chatId == null || chatId.isEmpty()) chatId = "papa_hija";
+        if (chatId == null || chatId.isEmpty()) chatId = activeChatId(c);
         JSONObject fields = new JSONObject()
                 .put("chatId", new JSONObject().put("stringValue", chatId))
                 .put("senderUid", new JSONObject().put("stringValue", myUid(c)))
@@ -217,7 +318,7 @@ public class ChatApi {
     }
 
     public static void sendText(Context c, String text) throws Exception {
-        sendText(c, text, "papa_hija");
+        sendText(c, text, activeChatId(c));
     }
 
     /** Marca como leído un mensaje recibido (los ✓✓ de la web). */

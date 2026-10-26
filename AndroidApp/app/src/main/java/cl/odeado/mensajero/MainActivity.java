@@ -13,6 +13,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.InputType;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -111,6 +112,9 @@ public class MainActivity extends AppCompatActivity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setSupportZoom(false);
         webView.setBackgroundColor(0xFF0A0E1A);
+        // La web avisa aquí qué chat está viendo para que la notificación fija muestre
+        // el nombre y el estado correctos (Hija o Amor).
+        webView.addJavascriptInterface(new NativeBridge(), "MensajeroNative");
         webView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) { swipeRefresh.setRefreshing(false); }
 
@@ -142,6 +146,30 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
         });
+    }
+
+    // Puente con la web: mantiene sincronizado el chat activo y los avisos nativos.
+    private class NativeBridge {
+        @JavascriptInterface
+        public void configure(String chatsJson, String activeChatId) {
+            ChatApi.configureChats(MainActivity.this, chatsJson);
+            if (activeChatId != null && !activeChatId.isEmpty()) {
+                ChatApi.setActiveChat(MainActivity.this, activeChatId);
+            }
+            refreshMonitor();
+        }
+
+        @JavascriptInterface
+        public void setActiveChat(String chatId) {
+            ChatApi.setActiveChat(MainActivity.this, chatId);
+            refreshMonitor();
+        }
+    }
+
+    private void refreshMonitor() {
+        if (ChatApi.hasSession(this) && ChatMonitorService.isEnabled(this)) {
+            ChatMonitorService.refresh(this);
+        }
     }
 
     // Abre el enlace fuera de la app (navegador, correo, teléfono) para no salir del chat.
@@ -186,8 +214,8 @@ public class MainActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle("🔔 Activar avisos")
                 .setMessage((error != null ? "⚠️ " + error + "\n\n" : "")
-                        + "Para avisarte cuando escriba " + ChatApi.PARTNER_NAME
-                        + " aunque la app esté cerrada, ingresa tu clave del chat una vez. Solo se guarda la sesión (cifrada), no la clave.")
+                        + "Para avisarte cuando te escriban aunque la app esté cerrada, ingresa tu clave del chat una vez. "
+                        + "Solo se guarda la sesión (cifrada), no la clave.")
                 .setView(box)
                 .setCancelable(false)
                 .setPositiveButton("Activar", (d, w) -> signIn(input.getText().toString()))
