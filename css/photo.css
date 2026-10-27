@@ -257,7 +257,12 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.16s ease;
+  opacity: 0;
+  transition: transform 0.16s ease, opacity 0.28s ease;
+}
+
+.camera-stage.ready video {
+  opacity: 1;
 }
 
 .camera-stage video.mirror {
@@ -282,6 +287,11 @@
   background: #fff;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.camera-flash.screen {
+  opacity: 1;
 }
 
 .camera-flash.on {
@@ -298,11 +308,37 @@
   font-size: 13px;
   line-height: 1.5;
   color: #cfd8dc;
-  background: rgba(0, 0, 0, 0.42);
+  background: radial-gradient(circle at 50% 40%, #12202a 0%, #0a1217 55%, #05090c 100%);
 }
 
 .camera-state b {
   color: var(--text-primary);
+}
+
+.camera-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.camera-loader-ring {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--accent-green);
+  animation: cam-spin 0.9s linear infinite;
+}
+
+.camera-loader-text {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+@keyframes cam-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Linterna y zoom, encima del video */

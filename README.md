@@ -31,7 +31,10 @@ URL: `https://odeado.github.io/mensajero/`
 - 🎮 Juegos en tiempo real: Gato, 4 en línea, Damas, Cachipún y Jenga (botón 🎮 junto a la cámara).
 - 📷 Fotos: modal propio con **Cámara** (vista en vivo dentro del chat) y **Galería**.
   La cámara se abre en un panel al costado (o como hoja inferior en el celular), con
-  linterna, zoom (pellizco, rueda del mouse o tocando la etiqueta) y cambio de cámara.
+  linterna (si el teléfono la tiene), zoom (pellizco, rueda del mouse o tocando la etiqueta)
+  y cambio de cámara. En la frontal se usa un flash de pantalla al disparar.
+- ✨ Texto grande: escribe una palabra en el chat y toca el botón ✨ para enviarla como
+  sticker con estilo (Neón, Oro, Fuego, Hielo, Candy o Cristal).
 - 🔔 Notificaciones: tocar la campana. Llegan mientras la app está abierta o en segundo plano.
   En iPhone solo funcionan si la app se agregó a la pantalla de inicio.
 - 📲 Instalable como app (ícono propio).

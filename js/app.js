@@ -396,6 +396,7 @@ function incoming(m) {
   }
 
   const body = m.type === "image" ? "📷 Foto"
+    : m.type === "textart" ? `✨ ${m.text || ""}`
     : m.type === "msncard" ? `🎁 ${m.card?.titulo || "Te envió una presentación"}`
     : m.type === "game" ? `🎮 Te invitó a jugar ${GAMES[m.game]?.name || ""}`
     : String(m.text || "");
@@ -430,6 +431,7 @@ sendForm.addEventListener("submit", (e) => {
   const text = input.value.trim();
   if (!text || !me) return;
   input.value = "";
+  btnTextart.classList.add("hidden");
   sendTyping(false);
   sendMessage({ type: "text", text });
 });
@@ -496,8 +498,10 @@ function stopCameraStream() {
     camStream = null;
   }
   cameraVideo.srcObject = null;
+  cameraStage.classList.remove("ready");
   camTorch = false;
   cameraTorchBtn.classList.remove("on");
+  cameraTorchBtn.classList.add("hidden");
   camZoom = 1;
   updateZoomLabel();
 }
@@ -511,10 +515,29 @@ function setCameraState(html) {
   cameraState.classList.remove("hidden");
 }
 
+const CAMERA_LOADER =
+  '<span class="camera-loader">' +
+  '<span class="camera-loader-ring"></span>' +
+  '<span class="camera-loader-text">Encendiendo cámara…</span>' +
+  '</span>';
+
+// La linterna solo existe en algunas cámaras (casi siempre la trasera).
+function updateTorchAvailability() {
+  const track = camStream && camStream.getVideoTracks()[0];
+  const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+  const tieneLinterna = !!(caps && caps.torch);
+  cameraTorchBtn.classList.toggle("hidden", !tieneLinterna);
+  if (!tieneLinterna) {
+    camTorch = false;
+    cameraTorchBtn.classList.remove("on");
+  }
+}
+
 async function startCameraStream() {
   stopCameraStream();
   camFailed = false;
-  setCameraState("Encendiendo cámara…");
+  cameraStage.classList.remove("ready");
+  setCameraState(CAMERA_LOADER);
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     closeCameraDock();
@@ -533,11 +556,24 @@ async function startCameraStream() {
     cameraVideo.srcObject = camStream;
     cameraTitle.textContent = camFacing === "user" ? "Cámara frontal" : "Cámara trasera";
     await cameraVideo.play().catch(() => {});
+
+    // Esperamos el primer cuadro para que no se vea el icono de "play" del navegador.
+    if (cameraVideo.readyState < 2) {
+      await new Promise((resolve) => {
+        const listo = () => { cameraVideo.removeEventListener("loadeddata", listo); resolve(); };
+        cameraVideo.addEventListener("loadeddata", listo);
+        setTimeout(resolve, 1500);
+      });
+    }
+
     updateZoomLabel();
+    updateTorchAvailability();
+    cameraStage.classList.add("ready");
     setCameraState(null);
   } catch (err) {
     console.warn("Cámara no disponible", err);
     camFailed = true;
+    cameraTorchBtn.classList.add("hidden");
     const sinPermiso = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
     setCameraState(
       (sinPermiso ? "Falta el permiso de cámara." : "No se pudo abrir la cámara aquí.") +
@@ -647,6 +683,14 @@ async function onShutter() {
   }
 
   camBusy = true;
+
+  // Cámara frontal sin linterna: iluminamos con la pantalla antes de disparar.
+  const flashPantalla = camFacing === "user" && !camTorch;
+  if (flashPantalla) {
+    cameraFlash.classList.add("screen");
+    await new Promise((r) => setTimeout(r, 280));
+  }
+
   cameraFlash.classList.remove("on");
   void cameraFlash.offsetWidth;
   cameraFlash.classList.add("on");
@@ -661,6 +705,7 @@ async function onShutter() {
     console.error(err);
     toast("No se pudo tomar la foto.");
   } finally {
+    cameraFlash.classList.remove("screen");
     camBusy = false;
   }
 }
@@ -680,6 +725,7 @@ $("camera-gallery").addEventListener("click", () => {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!cameraDock.classList.contains("hidden")) closeCameraDock();
+  else if (!textartModal.classList.contains("hidden")) closeTextart();
   else if (!photoModal.classList.contains("hidden")) hidePhotoMenu();
 });
 
@@ -716,6 +762,111 @@ async function handlePhotoInput(e) {
 
 fileInput.addEventListener("change", handlePhotoInput);
 cameraInput.addEventListener("change", handlePhotoInput);
+
+// ---------- Texto grande: palabras enviadas como sticker ----------
+const textartModal = $("textart-modal");
+const textartInput = $("textart-input");
+const textartPreview = $("textart-preview");
+const textartStylesEl = $("textart-styles");
+const textartSendBtn = $("textart-send");
+const btnTextart = $("btn-textart");
+
+const TEXTART_STYLES = [
+  { id: "neon", name: "Neón" },
+  { id: "gold", name: "Oro" },
+  { id: "fire", name: "Fuego" },
+  { id: "ice", name: "Hielo" },
+  { id: "candy", name: "Candy" },
+  { id: "glass", name: "Cristal" }
+];
+
+let taStyle = "neon";
+
+function textartNode(word, style) {
+  const d = document.createElement("div");
+  const id = TEXTART_STYLES.some((s) => s.id === style) ? style : "neon";
+  d.className = "textart ta-" + id;
+  const len = [...word].length;
+  const size = len <= 5 ? "52px" : len <= 9 ? "40px" : len <= 14 ? "30px" : "24px";
+  d.style.setProperty("--ta-size", size);
+  d.textContent = word;
+  return d;
+}
+
+function renderTextartPreview() {
+  const word = textartInput.value.trim();
+  textartPreview.replaceChildren();
+  if (!word) {
+    const hint = document.createElement("span");
+    hint.className = "camera-loader-text";
+    hint.textContent = "Escribe algo para verlo aquí";
+    textartPreview.appendChild(hint);
+    textartSendBtn.disabled = true;
+    return;
+  }
+  textartPreview.appendChild(textartNode(word, taStyle));
+  textartSendBtn.disabled = false;
+}
+
+function buildTextartStyles() {
+  textartStylesEl.replaceChildren();
+  for (const s of TEXTART_STYLES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ta-chip" + (s.id === taStyle ? " selected" : "");
+    b.dataset.style = s.id;
+    b.textContent = s.name;
+    b.addEventListener("click", () => {
+      taStyle = s.id;
+      for (const c of textartStylesEl.children) c.classList.toggle("selected", c.dataset.style === taStyle);
+      renderTextartPreview();
+    });
+    textartStylesEl.appendChild(b);
+  }
+}
+
+function openTextart() {
+  const typed = input.value.trim();
+  textartModal.classList.remove("hidden");
+  textartInput.value = typed;
+  renderTextartPreview();
+  setTimeout(() => textartInput.focus(), 60);
+}
+
+function closeTextart() {
+  textartModal.classList.add("hidden");
+}
+
+function sendTextart() {
+  const word = textartInput.value.trim();
+  if (!word || !me) return;
+  sendMessage({ type: "textart", text: word, style: taStyle });
+  input.value = "";
+  btnTextart.classList.add("hidden");
+  closeTextart();
+}
+
+btnTextart.addEventListener("click", openTextart);
+textartInput.addEventListener("input", renderTextartPreview);
+textartInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendTextart();
+  }
+});
+$("textart-close").addEventListener("click", closeTextart);
+textartSendBtn.addEventListener("click", sendTextart);
+textartModal.addEventListener("click", (e) => {
+  if (e.target === textartModal) closeTextart();
+});
+
+// El botón ✨ aparece cuando hay algo escrito.
+input.addEventListener("input", () => {
+  btnTextart.classList.toggle("hidden", input.value.trim().length === 0);
+});
+
+buildTextartStyles();
+renderTextartPreview();
 
 async function compressImage(file) {
   const img = await loadImage(file);
@@ -927,6 +1078,9 @@ function buildBubble(id, m, pending) {
     wrap.append(icon, info);
     wrap.addEventListener("click", () => playMsnCard(m.card));
     el.appendChild(wrap);
+  } else if (m.type === "textart" && m.text) {
+    el.classList.add("textart-bubble");
+    el.appendChild(textartNode(String(m.text), m.style));
   } else if (m.type === "game" && GAMES[m.game]) {
     const g = GAMES[m.game];
     el.classList.add("game-bubble");

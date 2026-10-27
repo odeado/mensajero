@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/msncard.css?v=msncard-alpha-20261025-r2">
   <link rel="stylesheet" href="css/card-gallery.css">
   <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
+  <link rel="stylesheet" href="css/textart.css?v=texto-grande-20261026">
 </head>
 <body>
 
@@ -104,6 +105,9 @@
       <div class="input-wrapper">
         <button type="button" class="emoji-toggle" id="btn-emoji" title="Emojis">😊</button>
         <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off" enterkeyhint="send" maxlength="4000">
+        <button type="button" class="ta-open hidden" id="btn-textart" title="Convertir en texto grande ✨">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
       </div>
       <button type="submit" class="icon-btn send-btn" title="Enviar">
         <i class="fa-solid fa-paper-plane"></i>
@@ -186,14 +190,20 @@
     </div>
 
     <div class="camera-stage" id="camera-stage">
-      <video id="camera-video" autoplay playsinline muted></video>
+      <video id="camera-video" autoplay playsinline muted preload="auto"
+             poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%2305090c'/%3E%3C/svg%3E"></video>
       <div class="camera-grid" aria-hidden="true"></div>
       <button class="camera-overlay-btn" id="camera-torch" type="button" aria-label="Linterna" title="Linterna">
         <i class="fa-solid fa-bolt"></i>
       </button>
       <button class="camera-zoom-pill" id="camera-zoom" type="button" aria-label="Zoom" title="Zoom (también pellizca)">1×</button>
       <div class="camera-flash" id="camera-flash" aria-hidden="true"></div>
-      <div class="camera-state" id="camera-state">Encendiendo cámara…</div>
+      <div class="camera-state" id="camera-state">
+        <span class="camera-loader">
+          <span class="camera-loader-ring"></span>
+          <span class="camera-loader-text">Encendiendo cámara…</span>
+        </span>
+      </div>
     </div>
 
     <div class="camera-controls">
@@ -209,6 +219,30 @@
     </div>
   </aside>
 
+  <!-- Texto grande (palabras como sticker) -->
+  <div id="textart-modal" class="photo-modal hidden">
+    <div class="photo-sheet textart-sheet" role="dialog" aria-modal="true" aria-labelledby="textart-title">
+      <div class="photo-sheet-head">
+        <div class="photo-sheet-titles">
+          <h3 id="textart-title">Texto grande ✨</h3>
+          <p>Escribe una palabra y elige el estilo</p>
+        </div>
+        <button class="photo-close" id="textart-close" type="button" aria-label="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="textart-preview" id="textart-preview"></div>
+
+      <input type="text" id="textart-input" class="textart-input" maxlength="24"
+             placeholder="Ej. amor, te quiero, feliz día…" autocomplete="off">
+
+      <div class="textart-styles" id="textart-styles"></div>
+
+      <button type="button" class="textart-send" id="textart-send" disabled>Enviar ✨</button>
+    </div>
+  </div>
+
   <!-- Visor de fotos -->
   <div id="lightbox-modal" class="lightbox-modal hidden">
     <button class="lightbox-close" id="lightbox-close">&times;</button>
@@ -220,6 +254,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=camara-dock-20261026"></script>
+  <script type="module" src="js/app.js?v=texto-grande-20261026"></script>
 </body>
 </html>
