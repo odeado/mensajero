@@ -1022,6 +1022,7 @@ async function openAlbum() {
   albumGrid.replaceChildren();
   albumEmpty.classList.add("hidden");
   albumMeta.textContent = "Cargando fotos…";
+  const chatId = currentChatId;
 
   try {
     // Sin where para no necesitar índice compuesto: filtramos por chat en el cliente.
@@ -1031,7 +1032,7 @@ async function openAlbum() {
     snap.forEach((d) => {
       const m = d.data({ serverTimestamps: "estimate" });
       const msgChatId = m.chatId || "papa_hija";
-      if (msgChatId !== currentChatId) return;
+      if (msgChatId !== chatId) return;
       if (m.type === "image" && typeof m.image === "string" && m.image.startsWith("data:image/")) {
         photos.push(m);
       }
