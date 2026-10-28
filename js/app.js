@@ -5,7 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, query, where, orderBy, limitToLast, onSnapshot, addDoc, doc, setDoc, updateDoc,
+  collection, query, where, orderBy, limit, limitToLast, onSnapshot, addDoc, doc, setDoc, updateDoc, getDocs,
   writeBatch, serverTimestamp, deleteField, connectFirestoreEmulator
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { AVATARS, REACTIONS, emojiOnlyCount, createEmojiPicker, insertAtCursor } from "./emoji.js";
@@ -60,6 +60,7 @@ const typingIndicator = $("typing-indicator");
 const typingText = $("typing-text");
 const sendForm = $("send-form");
 const input = $("message-input");
+const sendBtn = $("send-btn");
 const btnAttach = $("btn-attach");
 const btnEmoji = $("btn-emoji");
 const btnGames = $("btn-games");
@@ -74,8 +75,28 @@ const lightboxImg = $("lightbox-img");
 const lightboxDownload = $("lightbox-download");
 const toastEl = $("toast");
 const reactionBar = $("reaction-bar");
-const avatarModal = $("avatar-modal");
+const profileModal = $("profile-modal");
+const profileNameInput = $("profile-name");
+const profileAvatarEl = $("profile-avatar");
+const profileSaveBtn = $("profile-save");
 const avatarGrid = $("avatar-grid");
+const searchBtn = $("search-btn");
+const searchModal = $("search-modal");
+const searchInput = $("search-input");
+const searchClear = $("search-clear");
+const searchMeta = $("search-meta");
+const searchResults = $("search-results");
+const searchMore = $("search-more");
+const albumModal = $("album-modal");
+const albumGrid = $("album-grid");
+const albumMeta = $("album-meta");
+const albumEmpty = $("album-empty");
+const micBtn = $("mic-btn");
+const recBar = $("rec-bar");
+const recTime = $("rec-time");
+const recCancel = $("rec-cancel");
+const recSend = $("rec-send");
+const postalCheck = $("postal-check");
 const switchChatBtn = $("switch-chat-btn");
 const chatPickerModal = $("chat-picker-modal");
 const chatPickerClose = $("chat-picker-close");
@@ -106,12 +127,19 @@ let unreadHidden = 0;
 let reactTarget = null;   // id del mensaje al que se reacciona
 const bubbles = new Map(); // id -> element
 
-// ---------- Avatares guardados (para la pantalla de login) ----------
+// ---------- Avatares y nombres guardados ----------
 function cachedAvatar(email) {
   try { return localStorage.getItem("avatar_" + email) || FAMILY[email].avatar; } catch { return FAMILY[email].avatar; }
 }
 function cacheAvatar(email, a) {
   try { localStorage.setItem("avatar_" + email, a); } catch {}
+}
+function cachedName(email) {
+  try { return localStorage.getItem("name_" + email) || FAMILY[email]?.name || "Desconocido"; }
+  catch { return FAMILY[email]?.name || "Desconocido"; }
+}
+function cacheName(email, name) {
+  try { localStorage.setItem("name_" + email, name); } catch {}
 }
 
 // ---------- Login ----------
@@ -144,7 +172,7 @@ onAuthStateChanged(auth, (user) => {
       return {
         id,
         partnerEmail: pEmail,
-        partnerName: FAMILY[pEmail]?.name || "Desconocido",
+        partnerName: cachedName(pEmail),
         partnerAvatar: cachedAvatar(pEmail)
       };
     });
@@ -154,7 +182,7 @@ onAuthStateChanged(auth, (user) => {
     return showLogin("No tienes ningún chat asignado.");
   }
 
-  me = { uid: user.uid, email, ...profile, avatar: cachedAvatar(email) };
+  me = { uid: user.uid, email, ...profile, name: cachedName(email), avatar: cachedAvatar(email) };
 
   // Guardar/recuperar último chat seleccionado
   const savedChat = localStorage.getItem("last_chat_" + email);
@@ -231,6 +259,7 @@ function selectChat(chatId) {
   partner = {
     email: target.partnerEmail,
     ...FAMILY[target.partnerEmail],
+    name: cachedName(target.partnerEmail),
     avatar: cachedAvatar(target.partnerEmail)
   };
 
@@ -279,6 +308,7 @@ function startChat() {
   chatApp.classList.remove("hidden");
   partnerNameEl.textContent = partner.name;
   if (welcomeText) welcomeText.textContent = `Chat privado entre ${me.name} y ${partner.name}.`;
+  renderNames();
 
   // Mostrar botón de cambiar de chat solo si tiene más de 1 chat (ej. Papá)
   // Para Hija o Amor, este botón queda totalmente oculto.
@@ -315,9 +345,39 @@ function stopChat() {
   me = null;
 }
 
+function renderMeButton() {
+  if (!me) return;
+  meBtn.replaceChildren();
+  const av = document.createElement("span");
+  av.className = "me-btn-avatar";
+  av.textContent = me.avatar;
+  const nm = document.createElement("span");
+  nm.className = "me-btn-name";
+  nm.textContent = me.name;
+  meBtn.append(av, nm);
+  meBtn.title = `Mi perfil: ${me.name}`;
+}
+
 function renderAvatars() {
+  if (!me || !partner) return;
   headerAvatar.textContent = partner.avatar;
-  meBtn.textContent = `Tú: ${me.avatar} ${me.name}`;
+  renderMeButton();
+  profileAvatarEl.textContent = me.avatar;
+}
+
+function renderNames() {
+  if (!me || !partner) return;
+  partnerNameEl.textContent = partner.name;
+  renderMeButton();
+  if (welcomeText) welcomeText.textContent = `Chat privado entre ${me.name} y ${partner.name}.`;
+  document.title = unreadHidden ? `(${unreadHidden}) Chat con ${partner.name}` : `Chat con ${partner.name}`;
+
+  const c = availableChats.find((x) => x.id === currentChatId);
+  if (c) {
+    c.partnerName = partner.name;
+    c.partnerAvatar = partner.avatar;
+  }
+  syncNativeChat();
 }
 
 function subscribeMessages() {
@@ -382,6 +442,10 @@ function subscribeMessages() {
     }
     first = false;
     markRead();
+    if (searchAfterLoad) {
+      searchAfterLoad = false;
+      runSearch();
+    }
   }, (err) => {
     console.error(err);
     toast("No se pudieron cargar los mensajes (revisa las reglas de Firestore).");
@@ -396,6 +460,7 @@ function incoming(m) {
   }
 
   const body = m.type === "image" ? "📷 Foto"
+    : m.type === "audio" ? "🎙️ Nota de voz"
     : m.type === "textart" ? `✨ ${m.text || ""}`
     : m.type === "msncard" ? `🎁 ${m.card?.titulo || "Te envió una presentación"}`
     : m.type === "game" ? `🎮 Te invitó a jugar ${GAMES[m.game]?.name || ""}`
@@ -410,6 +475,185 @@ function incoming(m) {
 }
 
 loadMoreBtn.addEventListener("click", () => {
+  keepScrollFromBottom = container.scrollHeight - container.scrollTop;
+  msgLimit += PAGE;
+  subscribeMessages();
+});
+
+// ---------- Buscar mensajes ----------
+let searchAfterLoad = false;
+
+function normText(s) {
+  return String(s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function messageSearchText(m) {
+  const parts = [];
+  if (m.type === "image") parts.push("foto imagen");
+  else if (m.type === "audio") parts.push("nota de voz audio");
+  else if (m.type === "textart") parts.push("texto grande", String(m.text || ""));
+  else if (m.type === "msncard") parts.push("presentacion tarjeta", m.card?.titulo || "", m.card?.texto || "");
+  else if (m.type === "game") parts.push("juego", GAMES[m.game]?.name || "");
+  else parts.push(String(m.text || ""));
+
+  if (m.createdAt?.toDate) {
+    const d = m.createdAt.toDate();
+    parts.push(formatTime(d));
+    parts.push(d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }));
+    parts.push(d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }));
+  }
+  return normText(parts.join(" "));
+}
+
+function messagePreview(m) {
+  if (m.type === "image") return "📷 Foto";
+  if (m.type === "audio") return "🎙️ Nota de voz";
+  if (m.type === "textart") return `✨ ${m.text || ""}`;
+  if (m.type === "msncard") return `🎁 ${m.card?.titulo || "Presentación"}`;
+  if (m.type === "game") return `🎮 ${GAMES[m.game]?.name || "Juego"}`;
+  return String(m.text || "");
+}
+
+function messageIcon(m) {
+  if (m.type === "image") return "fa-image";
+  if (m.type === "audio") return "fa-microphone";
+  if (m.type === "textart") return "fa-wand-magic-sparkles";
+  if (m.type === "msncard") return "fa-gift";
+  if (m.type === "game") return "fa-gamepad";
+  return "fa-comment";
+}
+
+function appendHighlighted(parent, text, term) {
+  const raw = String(text ?? "");
+  const hay = normText(raw);
+  if (!term) { parent.textContent = raw; return; }
+  let from = 0;
+  let idx = hay.indexOf(term);
+  if (idx === -1) { parent.textContent = raw; return; }
+  while (idx !== -1) {
+    if (idx > from) parent.appendChild(document.createTextNode(raw.slice(from, idx)));
+    const mark = document.createElement("mark");
+    mark.textContent = raw.slice(idx, idx + term.length);
+    parent.appendChild(mark);
+    from = idx + term.length;
+    idx = hay.indexOf(term, from);
+  }
+  if (from < raw.length) parent.appendChild(document.createTextNode(raw.slice(from)));
+}
+
+function runSearch() {
+  if (!me || !partner) return;
+  const term = normText(searchInput.value.trim());
+  searchResults.replaceChildren();
+  searchMore.classList.add("hidden");
+  searchClear.classList.toggle("hidden", !term);
+
+  if (!term) {
+    searchMeta.textContent = "Escribe para buscar en esta conversación.";
+    return;
+  }
+
+  const found = [];
+  for (const d of lastDocs) {
+    const m = d.data({ serverTimestamps: "estimate" });
+    const msgChatId = m.chatId || "papa_hija";
+    if (msgChatId !== currentChatId) continue;
+    if (!messageSearchText(m).includes(term)) continue;
+    found.push({ id: d.id, m });
+  }
+  found.sort((a, b) => (b.m.createdAt?.toMillis?.() || 0) - (a.m.createdAt?.toMillis?.() || 0));
+
+  searchMeta.textContent = found.length
+    ? `${found.length} ${found.length === 1 ? "mensaje encontrado" : "mensajes encontrados"}`
+    : "Sin resultados en los mensajes cargados.";
+
+  if (!found.length) {
+    const empty = document.createElement("div");
+    empty.className = "search-empty";
+    const icon = document.createElement("span");
+    icon.textContent = "🔍";
+    const txt = document.createElement("p");
+    txt.textContent = "No encontré esa palabra en esta conversación.";
+    empty.append(icon, txt);
+    searchResults.appendChild(empty);
+  }
+
+  for (const { id, m } of found) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "search-result";
+
+    const icon = document.createElement("span");
+    icon.className = "search-result-icon";
+    icon.innerHTML = `<i class="fa-solid ${messageIcon(m)}"></i>`;
+
+    const body = document.createElement("span");
+    body.className = "search-result-body";
+
+    const top = document.createElement("span");
+    top.className = "search-result-top";
+    const name = document.createElement("span");
+    name.className = "search-result-name";
+    name.textContent = m.senderUid === me.uid ? "Tú" : partner.name;
+    const time = document.createElement("span");
+    time.className = "search-result-time";
+    time.textContent = m.createdAt?.toDate ? formatTime(m.createdAt.toDate()) : "";
+    top.append(name, time);
+
+    const text = document.createElement("span");
+    text.className = "search-result-text";
+    appendHighlighted(text, messagePreview(m), term);
+
+    body.append(top, text);
+    b.append(icon, body);
+
+    b.addEventListener("click", () => {
+      closeSearch();
+      const el = bubbles.get(id);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.remove("search-hit");
+      void el.offsetWidth;
+      el.classList.add("search-hit");
+      setTimeout(() => el.classList.remove("search-hit"), 2200);
+    });
+
+    searchResults.appendChild(b);
+  }
+
+  if (lastDocs.length >= msgLimit) searchMore.classList.remove("hidden");
+}
+
+function openSearch() {
+  closeCameraDock();
+  hidePhotoMenu();
+  searchModal.classList.remove("hidden");
+  searchInput.value = "";
+  runSearch();
+  setTimeout(() => searchInput.focus(), 80);
+}
+
+function closeSearch() {
+  searchModal.classList.add("hidden");
+  searchInput.value = "";
+  searchResults.replaceChildren();
+  searchMore.classList.add("hidden");
+}
+
+searchBtn.addEventListener("click", openSearch);
+$("search-close").addEventListener("click", closeSearch);
+searchModal.addEventListener("click", (e) => { if (e.target === searchModal) closeSearch(); });
+searchInput.addEventListener("input", runSearch);
+searchClear.addEventListener("click", () => {
+  searchInput.value = "";
+  runSearch();
+  searchInput.focus();
+});
+searchMore.addEventListener("click", () => {
+  searchAfterLoad = true;
   keepScrollFromBottom = container.scrollHeight - container.scrollTop;
   msgLimit += PAGE;
   subscribeMessages();
@@ -431,7 +675,7 @@ sendForm.addEventListener("submit", (e) => {
   const text = input.value.trim();
   if (!text || !me) return;
   input.value = "";
-  btnTextart.classList.add("hidden");
+  updateComposerButtons();
   sendTyping(false);
   sendMessage({ type: "text", text });
 });
@@ -726,6 +970,9 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!cameraDock.classList.contains("hidden")) closeCameraDock();
   else if (!textartModal.classList.contains("hidden")) closeTextart();
+  else if (!profileModal.classList.contains("hidden")) closeProfile();
+  else if (!searchModal.classList.contains("hidden")) closeSearch();
+  else if (!albumModal.classList.contains("hidden")) albumModal.classList.add("hidden");
   else if (!photoModal.classList.contains("hidden")) hidePhotoMenu();
 });
 
@@ -744,7 +991,7 @@ async function sendPhotoFile(file) {
   if (!file.type.startsWith("image/")) return toast("Solo se pueden enviar fotos.");
   try {
     toast("Preparando foto…");
-    const image = await compressImage(file);
+    const image = await compressImage(file, { postal: postalCheck.checked });
     sendMessage({ type: "image", image });
     hideToast();
   } catch (err) {
@@ -762,6 +1009,83 @@ async function handlePhotoInput(e) {
 
 fileInput.addEventListener("change", handlePhotoInput);
 cameraInput.addEventListener("change", handlePhotoInput);
+
+// ---------- Álbum de fotos del chat ----------
+let albumBusy = false;
+
+async function openAlbum() {
+  hidePhotoMenu();
+  closeCameraDock();
+  if (albumBusy) return;
+  albumBusy = true;
+  albumModal.classList.remove("hidden");
+  albumGrid.replaceChildren();
+  albumEmpty.classList.add("hidden");
+  albumMeta.textContent = "Cargando fotos…";
+
+  try {
+    // Sin where para no necesitar índice compuesto: filtramos por chat en el cliente.
+    const q = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(100));
+    const snap = await getDocs(q);
+    const photos = [];
+    snap.forEach((d) => {
+      const m = d.data({ serverTimestamps: "estimate" });
+      const msgChatId = m.chatId || "papa_hija";
+      if (msgChatId !== currentChatId) return;
+      if (m.type === "image" && typeof m.image === "string" && m.image.startsWith("data:image/")) {
+        photos.push(m);
+      }
+    });
+
+    albumGrid.replaceChildren();
+    if (!photos.length) {
+      albumMeta.textContent = "Todavía no hay fotos";
+      albumEmpty.classList.remove("hidden");
+      return;
+    }
+
+    albumMeta.textContent = `${photos.length} ${photos.length === 1 ? "foto" : "fotos"}`;
+    for (const m of photos) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "album-item";
+      b.title = "Ver foto";
+
+      const img = document.createElement("img");
+      img.src = m.image;
+      img.alt = "Foto del chat";
+      img.loading = "lazy";
+      img.decoding = "async";
+      b.appendChild(img);
+
+      if (m.createdAt?.toDate) {
+        const date = document.createElement("span");
+        date.className = "album-item-date";
+        date.textContent = m.createdAt.toDate().toLocaleDateString("es-CL", { day: "2-digit", month: "short" });
+        b.appendChild(date);
+      }
+
+      b.addEventListener("click", () => openLightbox(m.image));
+      albumGrid.appendChild(b);
+    }
+  } catch (err) {
+    console.error(err);
+    albumMeta.textContent = "No se pudo cargar el álbum.";
+  } finally {
+    albumBusy = false;
+  }
+}
+
+$("album-close").addEventListener("click", () => albumModal.classList.add("hidden"));
+albumModal.addEventListener("click", (e) => { if (e.target === albumModal) albumModal.classList.add("hidden"); });
+$("photo-album").addEventListener("click", openAlbum);
+
+// La foto postal se guarda como preferencia
+try { postalCheck.checked = localStorage.getItem("postal_photos") === "1"; } catch {}
+postalCheck.addEventListener("change", () => {
+  try { localStorage.setItem("postal_photos", postalCheck.checked ? "1" : "0"); } catch {}
+  toast(postalCheck.checked ? "📮 Fotos con marco y fecha activado" : "Fotos normales");
+});
 
 // ---------- Texto grande: palabras enviadas como sticker ----------
 const textartModal = $("textart-modal");
@@ -842,7 +1166,7 @@ function sendTextart() {
   if (!word || !me) return;
   sendMessage({ type: "textart", text: word, style: taStyle });
   input.value = "";
-  btnTextart.classList.add("hidden");
+  updateComposerButtons();
   closeTextart();
 }
 
@@ -860,18 +1184,264 @@ textartModal.addEventListener("click", (e) => {
   if (e.target === textartModal) closeTextart();
 });
 
-// El botón ✨ aparece cuando hay algo escrito.
-input.addEventListener("input", () => {
-  btnTextart.classList.toggle("hidden", input.value.trim().length === 0);
-});
+// El botón ✨ aparece cuando hay algo escrito; el micrófono deja su lugar al enviar.
+function updateComposerButtons() {
+  const hasText = input.value.trim().length > 0;
+  btnTextart.classList.toggle("hidden", !hasText);
+  micBtn.classList.toggle("hidden", hasText);
+  sendBtn.classList.toggle("hidden", !hasText);
+}
+input.addEventListener("input", updateComposerButtons);
 
 buildTextartStyles();
 renderTextartPreview();
+updateComposerButtons();
 
-async function compressImage(file) {
+// ---------- Notas de voz ----------
+const REC_MAX_MS = 90_000;
+let mediaRecorder = null;
+let recChunks = [];
+let recStream = null;
+let recTimer = null;
+let recStartedAt = 0;
+let recCancelled = false;
+let currentAudio = null;
+
+function fmtDuration(sec) {
+  const total = Math.max(0, Math.round(Number(sec) || 0));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function pickAudioMime() {
+  if (!window.MediaRecorder?.isTypeSupported) return "";
+  const options = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus"
+  ];
+  return options.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result));
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+
+function updateRecTime() {
+  const secs = (Date.now() - recStartedAt) / 1000;
+  recTime.textContent = fmtDuration(secs);
+  if (Date.now() - recStartedAt >= REC_MAX_MS) stopRecording(true);
+}
+
+function cleanupRecorder() {
+  clearInterval(recTimer);
+  recTimer = null;
+  mediaRecorder = null;
+  recChunks = [];
+  if (recStream) {
+    for (const track of recStream.getTracks()) track.stop();
+    recStream = null;
+  }
+  micBtn.classList.remove("recording");
+  micBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+  recBar.classList.add("hidden");
+  updateComposerButtons();
+}
+
+async function startRecording() {
+  if (mediaRecorder || !me) return;
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    return toast("Este navegador no permite grabar audio.");
+  }
+
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    console.error(err);
+    return toast("Falta el permiso de micrófono.");
+  }
+
+  const mime = pickAudioMime();
+  try {
+    mediaRecorder = new MediaRecorder(recStream, mime
+      ? { mimeType: mime, audioBitsPerSecond: 32_000 }
+      : { audioBitsPerSecond: 32_000 });
+  } catch {
+    try { mediaRecorder = new MediaRecorder(recStream); }
+    catch { cleanupRecorder(); return toast("No se pudo iniciar la grabación."); }
+  }
+
+  recChunks = [];
+  recCancelled = false;
+  recStartedAt = Date.now();
+
+  mediaRecorder.addEventListener("dataavailable", (e) => {
+    if (e.data && e.data.size) recChunks.push(e.data);
+  });
+  mediaRecorder.addEventListener("stop", onRecorderStop, { once: true });
+  try {
+    mediaRecorder.start(250);
+  } catch {
+    cleanupRecorder();
+    return toast("No se pudo iniciar la grabación.");
+  }
+
+  micBtn.classList.add("recording");
+  micBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+  recBar.classList.remove("hidden");
+  recTime.textContent = "0:00";
+  clearInterval(recTimer);
+  recTimer = setInterval(updateRecTime, 250);
+}
+
+function stopRecording(send = true) {
+  if (!mediaRecorder) return;
+  recCancelled = !send;
+  clearInterval(recTimer);
+  recTimer = null;
+  if (mediaRecorder.state !== "inactive") {
+    try { mediaRecorder.stop(); } catch { cleanupRecorder(); }
+  } else {
+    cleanupRecorder();
+  }
+}
+
+async function onRecorderStop() {
+  const chunks = recChunks.slice();
+  const cancelled = recCancelled;
+  const duration = Math.round((Date.now() - recStartedAt) / 1000);
+  cleanupRecorder();
+
+  if (cancelled || !chunks.length) return;
+  const blob = new Blob(chunks, { type: chunks[0].type || "audio/webm" });
+  if (blob.size < 900) return toast("La nota quedó muy corta.");
+
+  try {
+    const audio = await blobToDataURL(blob);
+    if (audio.length > 850_000) return toast("La nota es muy larga. Prueba con una más corta.");
+    sendMessage({ type: "audio", audio, duration });
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo preparar la nota de voz.");
+  }
+}
+
+function buildAudioPlayer(src, duration) {
+  const wrap = document.createElement("div");
+  wrap.className = "audio-msg";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "audio-play";
+  btn.setAttribute("aria-label", "Reproducir nota de voz");
+  btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+
+  const main = document.createElement("div");
+  main.className = "audio-main";
+
+  const track = document.createElement("div");
+  track.className = "audio-track";
+  track.setAttribute("role", "slider");
+  track.setAttribute("aria-label", "Avanzar en la nota de voz");
+  const fill = document.createElement("div");
+  fill.className = "audio-fill";
+  const knob = document.createElement("div");
+  knob.className = "audio-knob";
+  track.append(fill, knob);
+
+  const times = document.createElement("div");
+  times.className = "audio-time";
+  const cur = document.createElement("span");
+  cur.textContent = "0:00";
+  const total = document.createElement("span");
+  total.textContent = fmtDuration(duration);
+  times.append(cur, total);
+
+  main.append(track, times);
+  wrap.append(btn, main);
+
+  const audio = new Audio();
+  audio.preload = "metadata";
+  audio.src = src;
+
+  const knownDuration = () => {
+    if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
+    return Number(duration) || 0;
+  };
+
+  const setProgress = (pct) => {
+    const p = Math.max(0, Math.min(100, pct));
+    fill.style.width = p + "%";
+    knob.style.left = p + "%";
+  };
+
+  const updateIcon = () => {
+    const playing = !audio.paused && !audio.ended;
+    btn.innerHTML = playing
+      ? '<i class="fa-solid fa-pause"></i>'
+      : '<i class="fa-solid fa-play"></i>';
+    btn.classList.toggle("playing", playing);
+    wrap.classList.toggle("playing", playing);
+  };
+
+  btn.addEventListener("click", () => {
+    if (audio.paused) {
+      if (currentAudio && currentAudio !== audio) currentAudio.pause();
+      currentAudio = audio;
+      audio.play().catch(() => toast("No se pudo reproducir la nota."));
+    } else {
+      audio.pause();
+    }
+  });
+
+  audio.addEventListener("play", updateIcon);
+  audio.addEventListener("pause", updateIcon);
+  audio.addEventListener("ended", () => {
+    updateIcon();
+    setProgress(0);
+    cur.textContent = "0:00";
+  });
+  audio.addEventListener("loadedmetadata", () => {
+    const d = knownDuration();
+    if (d) total.textContent = fmtDuration(d);
+  });
+  audio.addEventListener("timeupdate", () => {
+    const d = knownDuration();
+    setProgress(d ? (audio.currentTime / d) * 100 : 0);
+    cur.textContent = fmtDuration(audio.currentTime);
+  });
+
+  track.addEventListener("click", (e) => {
+    const d = knownDuration();
+    if (!d) return;
+    const rect = track.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audio.currentTime = pct * d;
+    setProgress(pct * 100);
+  });
+
+  return wrap;
+}
+
+micBtn.addEventListener("click", () => {
+  if (mediaRecorder) stopRecording(true);
+  else startRecording();
+});
+recCancel.addEventListener("click", () => stopRecording(false));
+recSend.addEventListener("click", () => stopRecording(true));
+
+async function compressImage(file, { postal = false } = {}) {
   const img = await loadImage(file);
   const LIMIT = 700_000; // caracteres base64 (~500 KB), bajo el máximo de Firestore
   const isPng = file.type === "image/png";
+  const takenAt = new Date();
 
   for (const maxSide of [1280, 1024, 800, 640]) {
     const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
@@ -881,15 +1451,19 @@ async function compressImage(file) {
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext("2d");
 
-    // Si NO es PNG, le ponemos fondo blanco por si era jpeg
-    if (!isPng) {
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, w, h);
+    if (postal) {
+      drawPostal(ctx, img, w, h, takenAt);
+    } else {
+      // Si NO es PNG, le ponemos fondo blanco por si era jpeg
+      if (!isPng) {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(img, 0, 0, w, h);
     }
-    ctx.drawImage(img, 0, 0, w, h);
 
-    // Si es PNG, preservamos transparencia
-    if (isPng) {
+    // Si es PNG (y no es postal), preservamos transparencia
+    if (isPng && !postal) {
       const pngData = canvas.toDataURL("image/png");
       if (pngData.length <= LIMIT) return pngData;
     }
@@ -903,6 +1477,43 @@ async function compressImage(file) {
     }
   }
   throw new Error("Imagen demasiado grande");
+}
+
+// Marco blanco estilo postal + fecha y hora estampadas abajo.
+function drawPostal(ctx, img, w, h, when) {
+  const short = Math.min(w, h);
+  const pad = Math.max(10, Math.round(short * 0.045));
+  const band = Math.max(38, Math.round(short * 0.13));
+  const innerW = w - pad * 2;
+  const innerH = h - pad * 2 - band;
+
+  ctx.fillStyle = "#fdfcf7";
+  ctx.fillRect(0, 0, w, h);
+
+  // Recorte tipo "cover" para que la foto llene el marco sin deformarse.
+  const scale = Math.max(innerW / img.width, innerH / img.height);
+  const sw = innerW / scale;
+  const sh = innerH / scale;
+  const sx = (img.width - sw) / 2;
+  const sy = (img.height - sh) / 2;
+  ctx.drawImage(img, sx, sy, sw, sh, pad, pad, innerW, innerH);
+
+  const dateStr = when.toLocaleDateString("es-CL", {
+    day: "2-digit", month: "short", year: "numeric"
+  }).replace(".", "").toUpperCase();
+  const timeStr = when.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+  const fs = Math.max(11, Math.round(short * 0.036));
+  const baseY = pad + innerH + band / 2;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillStyle = "#00a884";
+  ctx.fillRect(w / 2 - fs * 1.1, baseY - fs * 1.05, fs * 2.2, Math.max(2, Math.round(fs * 0.1)));
+
+  ctx.fillStyle = "#4a4a45";
+  ctx.font = `600 ${fs}px "Segoe UI", system-ui, -apple-system, sans-serif`;
+  ctx.fillText(`${dateStr}  ·  ${timeStr}`, w / 2, baseY + fs * 0.25);
 }
 
 function loadImage(file) {
@@ -1061,6 +1672,8 @@ function buildBubble(id, m, pending) {
     wrap.addEventListener("click", () => { if (!el._longPressed) openLightbox(m.image); });
     wrap.appendChild(img);
     el.appendChild(wrap);
+  } else if (m.type === "audio" && typeof m.audio === "string" && m.audio.startsWith("data:audio/")) {
+    el.appendChild(buildAudioPlayer(m.audio, m.duration));
   } else if (m.type === "msncard" && m.card) {
     el.classList.add("card-bubble");
     const wrap = document.createElement("div");
@@ -1243,27 +1856,69 @@ function markRead() {
   batch.commit().catch((e) => console.error(e));
 }
 
-// ---------- Avatar ----------
+// ---------- Mi perfil (nombre + avatar) ----------
+let profileAvatarChoice = null;
+
+function openProfile() {
+  if (!me) return;
+  closeCameraDock();
+  hidePhotoMenu();
+  profileAvatarChoice = me.avatar;
+  profileNameInput.value = me.name;
+  profileAvatarEl.textContent = me.avatar;
+  avatarGrid.querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("selected", b.textContent === me.avatar);
+  });
+  profileModal.classList.remove("hidden");
+  setTimeout(() => profileNameInput.focus(), 80);
+}
+
+function closeProfile() {
+  profileModal.classList.add("hidden");
+}
+
+function saveProfile() {
+  if (!me) return;
+  const name = profileNameInput.value.trim().replace(/\s+/g, " ").slice(0, 24);
+  if (!name) {
+    toast("Escribe tu nombre.");
+    profileNameInput.focus();
+    return;
+  }
+
+  me.name = name;
+  me.avatar = profileAvatarChoice || me.avatar;
+  cacheName(me.email, name);
+  cacheAvatar(me.email, me.avatar);
+
+  renderAvatars();
+  renderNames();
+  setStatus({ name, avatar: me.avatar }).catch(() => {});
+
+  closeProfile();
+  toast("Perfil actualizado ✨");
+}
+
 AVATARS.forEach((a) => {
   const b = document.createElement("button");
   b.type = "button";
   b.textContent = a;
   b.addEventListener("click", () => {
     if (!me) return;
-    me.avatar = a;
-    cacheAvatar(me.email, a);
-    renderAvatars();
-    setStatus({ avatar: a }).catch(() => {});
-    avatarModal.classList.add("hidden");
+    profileAvatarChoice = a;
+    profileAvatarEl.textContent = a;
+    avatarGrid.querySelectorAll("button").forEach((x) => x.classList.toggle("selected", x === b));
   });
   avatarGrid.appendChild(b);
 });
-meBtn.addEventListener("click", () => {
-  avatarGrid.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.textContent === me?.avatar));
-  avatarModal.classList.remove("hidden");
+
+meBtn.addEventListener("click", openProfile);
+profileSaveBtn.addEventListener("click", saveProfile);
+$("profile-close").addEventListener("click", closeProfile);
+profileModal.addEventListener("click", (e) => { if (e.target === profileModal) closeProfile(); });
+profileNameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); saveProfile(); }
 });
-$("avatar-close").addEventListener("click", () => avatarModal.classList.add("hidden"));
-avatarModal.addEventListener("click", (e) => { if (e.target === avatarModal) avatarModal.classList.add("hidden"); });
 
 // ---------- En línea / escribiendo ----------
 function setStatus(fields) {
@@ -1271,6 +1926,7 @@ function setStatus(fields) {
   // Incluimos el email y el chat en el que está escribiendo
   return setDoc(doc(db, "status", me.uid), {
     ...fields,
+    name: me.name,
     email: me.email,
     activeChat: currentChatId,
     lastSeen: serverTimestamp()
@@ -1299,11 +1955,17 @@ function subscribeStatus() {
     partnerStatus = other ? other.data({ serverTimestamps: "estimate" }) : null;
 
     if (mine?.avatar && mine.avatar !== me.avatar) { me.avatar = mine.avatar; cacheAvatar(me.email, mine.avatar); }
+    if (mine?.name && mine.name !== me.name) { me.name = mine.name; cacheName(me.email, mine.name); }
     if (partnerStatus?.avatar && partnerStatus.avatar !== partner.avatar) {
       partner.avatar = partnerStatus.avatar;
       cacheAvatar(partner.email, partnerStatus.avatar);
     }
+    if (partnerStatus?.name && partnerStatus.name !== partner.name) {
+      partner.name = partnerStatus.name;
+      cacheName(partner.email, partnerStatus.name);
+    }
     renderAvatars();
+    renderNames();
     renderPartnerStatus();
 
     clearTimeout(typingHideTimer);

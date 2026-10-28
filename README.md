@@ -27,7 +27,16 @@ URL: `https://odeado.github.io/mensajero/`
 - 🔗 Los enlaces se vuelven clicables solos (`https://…`, `www.…` o `youtube.com/…`); en el APK se abren en el navegador sin salir del chat.
 - 😊 Selector de emojis · emojis solos se ven grandes (stickers).
 - ❤️ Reacciones: mantener apretado (o doble clic) un mensaje.
-- 🦄 Avatar: tocar tu nombre arriba a la derecha.
+- 🦄 Mi perfil: toca tu nombre arriba a la derecha para cambiar **cómo te llamas** y tu avatar.
+  El nombre se sincroniza con la otra persona y con los avisos.
+- 🔍 Buscar mensajes: lupa arriba a la derecha. Busca por palabra, frase o fecha y salta
+  al mensaje encontrado con un destello.
+- 🎙️ Notas de voz: toca el micrófono para grabar (hasta 90 segundos), y vuelve a tocarlo
+  para enviar. Tienes botones para cancelar o enviar mientras grabas.
+- 🖼️ Álbum del chat: desde el botón de cámara → **Álbum del chat**, o en la cuadrícula
+  se ven todas las fotos compartidas y se abren a pantalla completa.
+- 📮 Foto con marco y fecha: activa el interruptor en el menú de fotos para enviarla
+  estilo postal, con el día y la hora estampados.
 - 🎮 Juegos en tiempo real: Gato, 4 en línea, Damas, Cachipún y Jenga (botón 🎮 junto a la cámara).
 - 📷 Fotos: modal propio con **Cámara** (vista en vivo dentro del chat) y **Galería**.
   La cámara se abre en un panel al costado (o como hoja inferior en el celular), con

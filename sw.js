@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app, abrir sin señal y mostrar notificaciones.
 // Estrategia "red primero": siempre carga la versión nueva si hay internet.
-const CACHE = "chat-msncard-alpha-20261026-r3";
+const CACHE = "chat-features-20261028";
 
 self.addEventListener("install", () => self.skipWaiting());
 

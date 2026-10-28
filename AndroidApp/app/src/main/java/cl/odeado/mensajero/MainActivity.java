@@ -43,14 +43,14 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_FILE = 102;
     private static final int REQ_GALLERY = 103;
     private static final int REQ_CAMERA = 104;
-    private static final int REQ_CAM_PERM = 105;
+    private static final int REQ_MEDIA_PERM = 105;
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private TextView statusBar;
     private ValueCallback<Uri[]> fileCallback;
     private Uri cameraOutputUri;
-    private PermissionRequest pendingCamRequest;
+    private PermissionRequest pendingMediaRequest;
     private long pausedAt = 0;
 
     @Override
@@ -166,27 +166,42 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
 
-            // Cámara en vivo dentro del chat (getUserMedia del panel lateral).
+            // Cámara en vivo y micrófono (notas de voz) desde la web.
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
+                    String[] recursos = request.getResources();
                     boolean pideCamara = false;
-                    for (String recurso : request.getResources()) {
+                    boolean pideAudio = false;
+                    for (String recurso : recursos) {
                         if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(recurso)) pideCamara = true;
+                        else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(recurso)) pideAudio = true;
                     }
-                    if (!pideCamara) {
+                    if (!pideCamara && !pideAudio) {
                         request.deny();
                         return;
                     }
-                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
-                            == PackageManager.PERMISSION_GRANTED) {
-                        request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                    } else {
-                        if (pendingCamRequest != null) pendingCamRequest.deny();
-                        pendingCamRequest = request;
-                        ActivityCompat.requestPermissions(MainActivity.this,
-                                new String[]{Manifest.permission.CAMERA}, REQ_CAM_PERM);
+
+                    boolean camOk = !pideCamara
+                            || ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                            == PackageManager.PERMISSION_GRANTED;
+                    boolean audioOk = !pideAudio
+                            || ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED;
+
+                    if (camOk && audioOk) {
+                        request.grant(recursos);
+                        return;
                     }
+
+                    if (pendingMediaRequest != null) pendingMediaRequest.deny();
+                    pendingMediaRequest = request;
+
+                    java.util.ArrayList<String> faltan = new java.util.ArrayList<>();
+                    if (pideCamara && !camOk) faltan.add(Manifest.permission.CAMERA);
+                    if (pideAudio && !audioOk) faltan.add(Manifest.permission.RECORD_AUDIO);
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                            faltan.toArray(new String[0]), REQ_MEDIA_PERM);
                 });
             }
         });
@@ -467,14 +482,26 @@ public class MainActivity extends AppCompatActivity {
             afterPermissions();
         }
 
-        if (requestCode == REQ_CAM_PERM && pendingCamRequest != null) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                pendingCamRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-            } else {
-                pendingCamRequest.deny();
-                Toast.makeText(this, "Sin permiso de cámara puedes enviar desde la galería", Toast.LENGTH_SHORT).show();
+        if (requestCode == REQ_MEDIA_PERM && pendingMediaRequest != null) {
+            java.util.ArrayList<String> concedidos = new java.util.ArrayList<>();
+            for (String recurso : pendingMediaRequest.getResources()) {
+                if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(recurso)
+                        && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    concedidos.add(recurso);
+                } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(recurso)
+                        && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    concedidos.add(recurso);
+                }
             }
-            pendingCamRequest = null;
+            if (concedidos.isEmpty()) {
+                pendingMediaRequest.deny();
+                Toast.makeText(this, "Sin permiso de cámara o micrófono", Toast.LENGTH_SHORT).show();
+            } else {
+                pendingMediaRequest.grant(concedidos.toArray(new String[0]));
+            }
+            pendingMediaRequest = null;
         }
     }
 

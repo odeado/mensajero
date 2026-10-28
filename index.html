@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/card-gallery.css">
   <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
   <link rel="stylesheet" href="css/textart.css?v=texto-grande-20261026">
+  <link rel="stylesheet" href="css/features.css?v=perfil-busqueda-album-20261028">
 </head>
 <body>
 
@@ -62,7 +63,8 @@
       </div>
       <div class="header-actions">
         <button class="icon-btn hidden" id="switch-chat-btn" title="Cambiar de chat"><i class="fa-solid fa-users"></i></button>
-        <button class="me-btn" id="me-btn" title="Cambiar mi avatar"></button>
+        <button class="icon-btn" id="search-btn" title="Buscar mensajes"><i class="fa-solid fa-magnifying-glass"></i></button>
+        <button class="me-btn" id="me-btn" title="Mi perfil"></button>
         <button class="icon-btn" id="bell-btn" title="Notificaciones"><i class="fa-solid fa-bell-slash"></i></button>
         <button class="icon-btn" id="logout-btn" title="Cerrar sesión / cambiar usuario">
           <i class="fa-solid fa-right-from-bracket"></i>
@@ -89,6 +91,18 @@
 
     <div id="emoji-panel" class="emoji-panel hidden"></div>
 
+    <div id="rec-bar" class="rec-bar hidden">
+      <span class="rec-dot"></span>
+      <span class="rec-time" id="rec-time">0:00</span>
+      <span class="rec-hint">Grabando nota de voz…</span>
+      <button type="button" class="rec-btn rec-cancel" id="rec-cancel" title="Cancelar">
+        <i class="fa-solid fa-trash-can"></i>
+      </button>
+      <button type="button" class="rec-btn rec-send" id="rec-send" title="Enviar nota de voz">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </div>
+
     <form class="chat-input-bar" id="send-form">
       <input type="file" id="file-input" accept="image/*" class="hidden">
       <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
@@ -109,7 +123,10 @@
           <i class="fa-solid fa-wand-magic-sparkles"></i>
         </button>
       </div>
-      <button type="submit" class="icon-btn send-btn" title="Enviar">
+      <button type="button" class="icon-btn mic-btn" id="mic-btn" title="Grabar nota de voz">
+        <i class="fa-solid fa-microphone"></i>
+      </button>
+      <button type="submit" class="icon-btn send-btn" id="send-btn" title="Enviar">
         <i class="fa-solid fa-paper-plane"></i>
       </button>
     </form>
@@ -118,14 +135,74 @@
   <!-- Barra de reacciones -->
   <div id="reaction-bar" class="reaction-bar hidden"></div>
 
-  <!-- Elegir avatar -->
-  <div id="avatar-modal" class="modal-overlay hidden">
-    <div class="modal-card avatar-card">
+  <!-- Mi perfil: nombre + avatar -->
+  <div id="profile-modal" class="modal-overlay hidden">
+    <div class="modal-card profile-card">
       <div class="game-head">
-        <h3>Elige tu avatar</h3>
-        <button class="icon-btn" id="avatar-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+        <h3>Mi perfil</h3>
+        <button class="icon-btn" id="profile-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
       </div>
+
+      <div class="profile-preview">
+        <div class="profile-avatar" id="profile-avatar">👤</div>
+        <div class="profile-name-wrap">
+          <label for="profile-name">¿Cómo te llamas?</label>
+          <input type="text" id="profile-name" maxlength="24" autocomplete="off"
+                 placeholder="Ej. Papá, Amor, Andrés…">
+        </div>
+      </div>
+
+      <p class="profile-hint">Así te verá la otra persona en el chat y en los avisos. Tu usuario para entrar no cambia.</p>
+
       <div id="avatar-grid" class="avatar-grid"></div>
+
+      <button type="button" class="profile-save" id="profile-save">Guardar cambios</button>
+    </div>
+  </div>
+
+  <!-- Buscar mensajes -->
+  <div id="search-modal" class="modal-overlay hidden">
+    <div class="modal-card search-card">
+      <div class="game-head">
+        <h3>🔍 Buscar mensajes</h3>
+        <button class="icon-btn" id="search-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="search-field">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="search-input" autocomplete="off"
+               placeholder="Palabra, frase o fecha (ej. 12/10)">
+        <button type="button" class="search-clear hidden" id="search-clear" title="Limpiar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="search-meta" id="search-meta">Escribe para buscar en esta conversación.</p>
+      <div class="search-results" id="search-results"></div>
+      <button type="button" class="search-more hidden" id="search-more">Buscar en mensajes más antiguos</button>
+    </div>
+  </div>
+
+  <!-- Álbum de fotos del chat -->
+  <div id="album-modal" class="photo-modal hidden">
+    <div class="photo-sheet album-sheet" role="dialog" aria-modal="true" aria-labelledby="album-title">
+      <div class="photo-sheet-head">
+        <div class="photo-sheet-titles">
+          <h3 id="album-title">🖼️ Álbum del chat</h3>
+          <p id="album-meta">Todas las fotos compartidas</p>
+        </div>
+        <button class="photo-close" id="album-close" type="button" aria-label="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="album-grid" id="album-grid"></div>
+
+      <div class="album-empty hidden" id="album-empty">
+        <span class="album-empty-icon">📷</span>
+        <p>Todavía no hay fotos en este chat.</p>
+        <small>Las fotos que envíen aparecerán aquí.</small>
+      </div>
     </div>
   </div>
 
@@ -172,7 +249,26 @@
           </span>
           <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
         </button>
+
+        <button type="button" class="photo-option photo-option-album" id="photo-album">
+          <span class="photo-option-icon"><i class="fa-solid fa-photo-film"></i></span>
+          <span class="photo-option-text">
+            <strong>Álbum del chat</strong>
+            <small>Ver todas las fotos compartidas</small>
+          </span>
+          <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
+        </button>
       </div>
+
+      <label class="postal-toggle" for="postal-check">
+        <span class="postal-icon">📮</span>
+        <span class="postal-text">
+          <strong>Foto con marco y fecha</strong>
+          <small>Estilo postal con el día y la hora</small>
+        </span>
+        <input type="checkbox" id="postal-check">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
 
       <p class="photo-note"><i class="fa-solid fa-bolt"></i> Se optimiza antes de enviarse</p>
     </div>
@@ -254,6 +350,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=texto-grande-20261026"></script>
+  <script type="module" src="js/app.js?v=perfil-busqueda-album-20261028"></script>
 </body>
 </html>
