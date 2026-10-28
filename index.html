@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="css/card-gallery.css">
   <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
   <link rel="stylesheet" href="css/textart.css?v=texto-grande-20261026">
-  <link rel="stylesheet" href="css/features.css?v=perfil-busqueda-album-20261028">
+  <link rel="stylesheet" href="css/features.css?v=foto-viva-20261028">
 </head>
 <body>
 
@@ -104,7 +104,7 @@
     </div>
 
     <form class="chat-input-bar" id="send-form">
-      <input type="file" id="file-input" accept="image/*" class="hidden">
+      <input type="file" id="file-input" accept="image/*" multiple class="hidden">
       <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
       <input type="file" id="card-file-input" accept=".msncard,.json" class="hidden">
       <button type="button" class="icon-btn" id="btn-send-card" title="Enviar presentación 🎁">
@@ -270,6 +270,26 @@
         <span class="switch" aria-hidden="true"></span>
       </label>
 
+      <label class="postal-toggle live-toggle" for="live-check">
+        <span class="postal-icon live-icon">✨</span>
+        <span class="postal-text">
+          <strong>Foto viva</strong>
+          <small>Se mueve sola: paneo lento o fade</small>
+        </span>
+        <input type="checkbox" id="live-check">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <div class="live-effects hidden" id="live-effects">
+        <button type="button" class="live-chip selected" data-effect="pan">
+          <i class="fa-solid fa-arrows-left-right"></i> Paneo
+        </button>
+        <button type="button" class="live-chip" data-effect="fade">
+          <i class="fa-solid fa-star"></i> Fade
+        </button>
+        <span class="live-hint" id="live-hint">Si eliges varias fotos, se pasan solas.</span>
+      </div>
+
       <p class="photo-note"><i class="fa-solid fa-bolt"></i> Se optimiza antes de enviarse</p>
     </div>
   </div>
@@ -350,6 +370,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=perfil-busqueda-album-20261028"></script>
+  <script type="module" src="js/app.js?v=foto-viva-20261028"></script>
 </body>
 </html>

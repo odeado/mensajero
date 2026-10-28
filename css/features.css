@@ -530,6 +530,184 @@
   outline-offset: 2px;
 }
 
+/* ---------- Foto viva (paneo / fade) ---------- */
+.live-toggle .live-icon {
+  background: linear-gradient(135deg, rgba(0, 168, 132, 0.22), rgba(139, 92, 246, 0.28));
+}
+
+.live-toggle input:checked ~ .live-icon {
+  background: linear-gradient(135deg, rgba(0, 168, 132, 0.4), rgba(139, 92, 246, 0.45));
+}
+
+.live-effects {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 2px;
+  flex-wrap: wrap;
+}
+
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.live-chip i {
+  font-size: 11px;
+}
+
+.live-chip:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.live-chip.selected {
+  color: #06110d;
+  border-color: transparent;
+  background: linear-gradient(135deg, #4ade9f, #38bdf8);
+  box-shadow: 0 6px 16px rgba(0, 168, 132, 0.28);
+}
+
+.live-hint {
+  flex: 1 1 100%;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 3px;
+}
+
+/* La postal viva dentro del chat */
+.message-bubble.live-bubble {
+  padding: 6px 7px 5px;
+}
+
+.live-photo {
+  position: relative;
+  width: min(268px, 62vw);
+  max-width: 100%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.live-photo.framed {
+  padding: 9px 9px 0;
+  border-radius: 12px;
+  background: #fdfcf7;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
+}
+
+.live-window {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0a1217;
+}
+
+.live-photo.framed .live-window {
+  border-radius: 4px;
+}
+
+.live-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform-origin: center;
+  will-change: transform;
+  display: block;
+}
+
+/* Varias fotos: se van pasando con fade */
+.live-photo.slideshow .live-img {
+  opacity: 0;
+  transition: opacity 1.05s ease;
+}
+
+.live-photo.slideshow .live-img.on {
+  opacity: 1;
+}
+
+/* Una sola foto: paneo lento tipo Ken Burns */
+.live-photo[data-motion="pan"] .live-img {
+  animation: live-pan 19s ease-in-out infinite alternate;
+}
+
+.live-photo[data-motion="pan"].rev .live-img {
+  animation-name: live-pan-rev;
+}
+
+.live-photo.slideshow[data-motion="pan"] .live-img {
+  animation-duration: 26s;
+}
+
+/* Una sola foto: aparece con fade y luego respira */
+.live-photo[data-motion="fade"] .live-img {
+  animation: live-fade-in 1.25s ease-out both, live-breathe 22s ease-in-out 1.25s infinite;
+}
+
+/* En el pase de varias fotos manda el fade entre ellas: la imagen solo respira */
+.live-photo.slideshow[data-motion="fade"] .live-img {
+  animation: live-breathe 24s ease-in-out infinite;
+}
+
+@keyframes live-pan {
+  from { transform: scale(1.06) translate3d(-1.4%, 1.1%, 0); }
+  to   { transform: scale(1.19) translate3d(1.8%, -1.3%, 0); }
+}
+
+@keyframes live-pan-rev {
+  from { transform: scale(1.19) translate3d(1.6%, -1.1%, 0); }
+  to   { transform: scale(1.06) translate3d(-1.5%, 1.2%, 0); }
+}
+
+@keyframes live-fade-in {
+  from { opacity: 0; transform: scale(1.09); }
+  to   { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes live-breathe {
+  0%, 100% { transform: scale(1.02); }
+  50% { transform: scale(1.09); }
+}
+
+.live-date {
+  padding: 7px 4px 8px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.35px;
+  color: #4a4a45;
+  white-space: nowrap;
+}
+
+/* Distintivo de postal viva en el álbum */
+.album-item-live {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(4px);
+}
+
 /* ---------- Notas de voz ---------- */
 .mic-btn {
   color: var(--text-secondary);
@@ -792,6 +970,10 @@
     max-width: 230px;
   }
 
+  .live-photo {
+    width: min(234px, 64vw);
+  }
+
   .rec-hint {
     display: none;
   }
@@ -801,5 +983,13 @@
   .mic-btn.recording,
   .rec-dot {
     animation: none;
+  }
+
+  .live-img {
+    animation: none !important;
+  }
+
+  .live-photo.slideshow .live-img {
+    transition: none;
   }
 }

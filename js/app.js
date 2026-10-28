@@ -97,6 +97,8 @@ const recTime = $("rec-time");
 const recCancel = $("rec-cancel");
 const recSend = $("rec-send");
 const postalCheck = $("postal-check");
+const liveCheck = $("live-check");
+const liveEffects = $("live-effects");
 const switchChatBtn = $("switch-chat-btn");
 const chatPickerModal = $("chat-picker-modal");
 const chatPickerClose = $("chat-picker-close");
@@ -944,7 +946,7 @@ async function onShutter() {
     if (!blob) throw new Error("sin imagen");
     const file = new File([blob], "foto_" + Date.now() + ".jpg", { type: "image/jpeg" });
     closeCameraDock();
-    await sendPhotoFile(file);
+    await sendPhotoFiles([file]);
   } catch (err) {
     console.error(err);
     toast("No se pudo tomar la foto.");
@@ -986,25 +988,47 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // --- Envío de la foto (comprimida a base64) ---
-async function sendPhotoFile(file) {
-  if (!file || !me) return;
-  if (!file.type.startsWith("image/")) return toast("Solo se pueden enviar fotos.");
+const MAX_LIVE_SLIDES = 4;
+
+async function sendPhotoFiles(files) {
+  if (!me) return;
+  const list = Array.from(files || []).filter((f) => f && String(f.type).startsWith("image/"));
+  if (!list.length) return toast("Solo se pueden enviar fotos.");
+
+  const live = liveCheck.checked;
+  const postal = postalCheck.checked;
+  const effect = liveEffect === "fade" ? "fade" : "pan";
+
   try {
-    toast("Preparando foto…");
-    const image = await compressImage(file, { postal: postalCheck.checked });
-    sendMessage({ type: "image", image });
+    toast(list.length > 1 ? `Preparando ${list.length} fotos…` : "Preparando foto…");
+
+    if (live && list.length > 1) {
+      // Varias fotos: una sola postal que las va pasando con fade.
+      const picked = list.slice(0, MAX_LIVE_SLIDES);
+      const images = [];
+      for (const f of picked) images.push(await compressImage(f, { limit: 200_000 }));
+      sendMessage({ type: "image", images, motion: effect, frame: postal });
+    } else {
+      for (let i = 0; i < list.length; i++) {
+        // En la foto viva el marco se dibuja en pantalla, no dentro de la imagen.
+        const image = await compressImage(list[i], { postal: live ? false : postal });
+        if (live) sendMessage({ type: "image", image, motion: effect, frame: postal });
+        else sendMessage({ type: "image", image });
+        if (i < list.length - 1) await new Promise((r) => setTimeout(r, 250));
+      }
+    }
     hideToast();
   } catch (err) {
     console.error(err);
-    toast("No se pudo leer esa foto.");
+    toast(list.length > 1 ? "No se pudieron leer esas fotos." : "No se pudo leer esa foto.");
   }
 }
 
 async function handlePhotoInput(e) {
   const inputEl = e.currentTarget;
-  const file = inputEl.files[0];
+  const files = Array.from(inputEl.files || []);
   inputEl.value = "";
-  await sendPhotoFile(file);
+  await sendPhotoFiles(files);
 }
 
 fileInput.addEventListener("change", handlePhotoInput);
@@ -1033,9 +1057,8 @@ async function openAlbum() {
       const m = d.data({ serverTimestamps: "estimate" });
       const msgChatId = m.chatId || "papa_hija";
       if (msgChatId !== chatId) return;
-      if (m.type === "image" && typeof m.image === "string" && m.image.startsWith("data:image/")) {
-        photos.push(m);
-      }
+      const list = m.type === "image" ? imageListOf(m) : [];
+      if (list.length) photos.push({ m, src: list[0], list, count: list.length });
     });
 
     albumGrid.replaceChildren();
@@ -1046,14 +1069,14 @@ async function openAlbum() {
     }
 
     albumMeta.textContent = `${photos.length} ${photos.length === 1 ? "foto" : "fotos"}`;
-    for (const m of photos) {
+    for (const { m, src, list, count } of photos) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "album-item";
-      b.title = "Ver foto";
+      b.title = count > 1 ? `Ver foto (${count} en la postal viva)` : "Ver foto";
 
       const img = document.createElement("img");
-      img.src = m.image;
+      img.src = src;
       img.alt = "Foto del chat";
       img.loading = "lazy";
       img.decoding = "async";
@@ -1066,7 +1089,14 @@ async function openAlbum() {
         b.appendChild(date);
       }
 
-      b.addEventListener("click", () => openLightbox(m.image));
+      if (count > 1) {
+        const badge = document.createElement("span");
+        badge.className = "album-item-live";
+        badge.textContent = `✨ ${count}`;
+        b.appendChild(badge);
+      }
+
+      b.addEventListener("click", () => openLightbox(src, list));
       albumGrid.appendChild(b);
     }
   } catch (err) {
@@ -1087,6 +1117,38 @@ postalCheck.addEventListener("change", () => {
   try { localStorage.setItem("postal_photos", postalCheck.checked ? "1" : "0"); } catch {}
   toast(postalCheck.checked ? "📮 Fotos con marco y fecha activado" : "Fotos normales");
 });
+
+// ---------- Foto viva (paneo / fade) ----------
+let liveEffect = "pan";
+try { liveEffect = localStorage.getItem("live_effect") === "fade" ? "fade" : "pan"; } catch {}
+
+function renderLiveOptions() {
+  liveEffects.classList.toggle("hidden", !liveCheck.checked);
+  liveEffects.querySelectorAll(".live-chip").forEach((b) => {
+    b.classList.toggle("selected", b.dataset.effect === liveEffect);
+  });
+  const hint = $("live-hint");
+  if (hint) {
+    hint.textContent = liveEffect === "fade"
+      ? "Si eliges varias fotos, se pasan con fade."
+      : "La foto se mueve lento, como un recuerdo.";
+  }
+}
+
+try { liveCheck.checked = localStorage.getItem("live_photos") === "1"; } catch {}
+liveCheck.addEventListener("change", () => {
+  try { localStorage.setItem("live_photos", liveCheck.checked ? "1" : "0"); } catch {}
+  renderLiveOptions();
+  if (liveCheck.checked) toast("✨ Fotos vivas activadas");
+});
+liveEffects.querySelectorAll(".live-chip").forEach((b) => {
+  b.addEventListener("click", () => {
+    liveEffect = b.dataset.effect === "fade" ? "fade" : "pan";
+    try { localStorage.setItem("live_effect", liveEffect); } catch {}
+    renderLiveOptions();
+  });
+});
+renderLiveOptions();
 
 // ---------- Texto grande: palabras enviadas como sticker ----------
 const textartModal = $("textart-modal");
@@ -1438,9 +1500,8 @@ micBtn.addEventListener("click", () => {
 recCancel.addEventListener("click", () => stopRecording(false));
 recSend.addEventListener("click", () => stopRecording(true));
 
-async function compressImage(file, { postal = false } = {}) {
+async function compressImage(file, { postal = false, limit: LIMIT = 700_000 } = {}) {
   const img = await loadImage(file);
-  const LIMIT = 700_000; // caracteres base64 (~500 KB), bajo el máximo de Firestore
   const isPng = file.type === "image/png";
   const takenAt = new Date();
 
@@ -1655,6 +1716,95 @@ function appendLinkedText(parent, text) {
   return frag;
 }
 
+// ---------- Fotos vivas (paneo / fade) ----------
+function imageListOf(m) {
+  const ok = (s) => typeof s === "string" && s.startsWith("data:image/");
+  const arr = Array.isArray(m.images) ? m.images.filter(ok) : [];
+  if (arr.length) return arr;
+  return ok(m.image) ? [m.image] : [];
+}
+
+function postalStamp(ts) {
+  const d = ts && typeof ts.toDate === "function" ? ts.toDate() : new Date();
+  const date = d.toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })
+    .replace(/\./g, "")
+    .toUpperCase();
+  const time = d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: true })
+    .replace(/\u202f|\u00a0/g, " ")
+    .replace(/\s?([ap])\.?\s?m\.?$/i, " $1. m.");
+  return `${date} · ${time}`;
+}
+
+const LIVE_SLIDE_MS = 4200;
+let liveTimer = null;
+let liveSeq = 0;
+
+// Un solo temporizador para todas las postales con varias fotos.
+function startLiveSlideshow() {
+  if (liveTimer) return;
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  liveTimer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    document.querySelectorAll(".live-photo.slideshow").forEach((box) => {
+      const imgs = box.querySelectorAll(".live-img");
+      if (imgs.length < 2) return;
+      const next = (Number(box.dataset.index || 0) + 1) % imgs.length;
+      box.dataset.index = String(next);
+      imgs.forEach((im, i) => im.classList.toggle("on", i === next));
+    });
+  }, LIVE_SLIDE_MS);
+}
+
+function buildLivePhoto(m, list, bubble) {
+  const motion = m.motion === "fade" ? "fade" : "pan";
+  const framed = !!m.frame;
+
+  const box = document.createElement("div");
+  box.className = "live-photo" + (framed ? " framed" : "") + (list.length > 1 ? " slideshow" : "");
+  box.dataset.motion = motion;
+  box.dataset.index = "0";
+  if (liveSeq++ % 2) box.classList.add("rev");
+
+  const win = document.createElement("div");
+  win.className = "live-window";
+
+  list.forEach((src, i) => {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = "Foto";
+    img.decoding = "async";
+    img.className = "live-img" + (i === 0 ? " on" : "");
+    if (i === 0) {
+      img.addEventListener("load", () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          const r = img.naturalWidth / img.naturalHeight;
+          win.style.aspectRatio = r < 0.72 ? "3 / 4" : r > 1.9 ? "16 / 9" : `${img.naturalWidth} / ${img.naturalHeight}`;
+        }
+        if (isNearBottom(400)) scrollToBottom();
+      });
+    }
+    win.appendChild(img);
+  });
+
+  box.appendChild(win);
+
+  if (framed) {
+    const date = document.createElement("div");
+    date.className = "live-date";
+    date.textContent = postalStamp(m.createdAt);
+    box.appendChild(date);
+  }
+
+  if (list.length > 1) startLiveSlideshow();
+
+  box.addEventListener("click", () => {
+    if (bubble && bubble._longPressed) return;
+    openLightbox(list[0], list);
+  });
+
+  return box;
+}
+
 // ---------- Burbujas (sin innerHTML con datos del usuario) ----------
 function buildBubble(id, m, pending) {
   const isMine = m.senderUid === me.uid;
@@ -1662,15 +1812,19 @@ function buildBubble(id, m, pending) {
   el.className = `message-bubble ${isMine ? "sent" : "received"}`;
   el.dataset.id = id;
 
-  if (m.type === "image" && typeof m.image === "string" && m.image.startsWith("data:image/")) {
+  const photos = m.type === "image" ? imageListOf(m) : [];
+  if (m.type === "image" && photos.length && m.motion) {
+    el.classList.add("live-bubble");
+    el.appendChild(buildLivePhoto(m, photos, el));
+  } else if (m.type === "image" && photos.length) {
     const wrap = document.createElement("div");
     wrap.className = "img-msg-container";
     const img = document.createElement("img");
-    img.src = m.image;
+    img.src = photos[0];
     img.alt = "Foto";
     img.decoding = "async";
     img.addEventListener("load", () => { if (isNearBottom(400)) scrollToBottom(); });
-    wrap.addEventListener("click", () => { if (!el._longPressed) openLightbox(m.image); });
+    wrap.addEventListener("click", () => { if (!el._longPressed) openLightbox(photos[0]); });
     wrap.appendChild(img);
     el.appendChild(wrap);
   } else if (m.type === "audio" && typeof m.audio === "string" && m.audio.startsWith("data:audio/")) {
@@ -2051,11 +2205,25 @@ window.addEventListener("offline", updateNet);
 updateNet();
 
 // ---------- Visor de fotos ----------
-function openLightbox(src) {
-  lightboxImg.src = src;
-  lightboxDownload.href = src;
+let lightboxList = [];
+let lightboxIndex = 0;
+
+function openLightbox(src, list) {
+  lightboxList = Array.isArray(list) && list.length ? list : [src];
+  lightboxIndex = Math.max(0, lightboxList.indexOf(src));
+  lightboxImg.src = lightboxList[lightboxIndex];
+  lightboxDownload.href = lightboxImg.src;
   lightbox.classList.remove("hidden");
 }
+
+// Si la postal trae varias fotos, tocando la imagen se pasa a la siguiente.
+lightboxImg.addEventListener("click", (e) => {
+  if (lightboxList.length < 2) return;
+  e.stopPropagation();
+  lightboxIndex = (lightboxIndex + 1) % lightboxList.length;
+  lightboxImg.src = lightboxList[lightboxIndex];
+  lightboxDownload.href = lightboxImg.src;
+});
 $("lightbox-close").addEventListener("click", () => lightbox.classList.add("hidden"));
 lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.add("hidden"); });
 

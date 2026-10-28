@@ -37,6 +37,10 @@ URL: `https://odeado.github.io/mensajero/`
   se ven todas las fotos compartidas y se abren a pantalla completa.
 - 📮 Foto con marco y fecha: activa el interruptor en el menú de fotos para enviarla
   estilo postal, con el día y la hora estampados.
+- ✨ Foto viva: en el menú de fotos activa **Foto viva** y elige **Paneo** (la foto se
+  mueve lenta, tipo Ken Burns) o **Fade** (aparece suave y respira). Si eliges varias
+  fotos de la galería, se envían como una postal que las va pasando sola con fade
+  (hasta 4). Se combina con el marco postal y se abre a pantalla completa al tocarla.
 - 🎮 Juegos en tiempo real: Gato, 4 en línea, Damas, Cachipún y Jenga (botón 🎮 junto a la cámara).
 - 📷 Fotos: modal propio con **Cámara** (vista en vivo dentro del chat) y **Galería**.
   La cámara se abre en un panel al costado (o como hoja inferior en el celular), con

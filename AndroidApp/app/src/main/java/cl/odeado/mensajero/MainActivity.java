@@ -152,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (wantsImage(params)) {
                     if (params.isCaptureEnabled()) launchCamera();
-                    else launchGallery();
+                    else launchGallery(params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                     return true;
                 }
 
@@ -239,11 +239,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void launchGallery() {
+    private void launchGallery(boolean multiple) {
         try {
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);
             i.setType("image/*");
+            if (multiple) i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             startActivityForResult(i, REQ_GALLERY);
         } catch (Exception e) {
             cancelFileChooser();
