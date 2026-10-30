@@ -27,7 +27,7 @@ URL: `https://odeado.github.io/mensajero/`
 - En el teléfono: menú del navegador → *Agregar a pantalla de inicio* para usarlo como app.
 
 ## Funciones
-- 🗣️ **Dictado:** **+ → Dictado** convierte lo que dices en texto en el campo del mensaje, en español de Chile. Puedes detenerlo con el botón visible **Detener**, corregir el texto y tocar **Enviar**. Cerrar el menú no cancela la escucha; cambiar de chat, enviar, escribir manualmente o salir de la app la detiene. Si el navegador no ofrece reconocimiento de voz, la app muestra una alternativa: usar el dictado del teclado del teléfono.
+- 🗣️ **Dictado:** **+ → Dictado** convierte una frase en texto en el campo del mensaje, en español de Chile. Habla y haz una pausa: solo se inserta el resultado confirmado y la escucha termina automáticamente. Vuelve a tocar **Dictado** para agregar otra frase. **Detener** cancela la escucha pendiente sin modificar lo que ya estaba escrito. Puedes corregir el texto antes de tocar **Enviar**. Cerrar el menú no cancela la escucha; cambiar de chat, enviar, escribir manualmente o salir de la app la detiene. Si el navegador no ofrece reconocimiento de voz, la app muestra una alternativa: usar el dictado del teclado del teléfono.
 - 🔗 Los enlaces se vuelven clicables solos (`https://…`, `www.…` o `youtube.com/…`); en el APK se abren en el navegador sin salir del chat.
 - 😊 Selector de emojis · emojis solos se ven grandes (stickers).
 - ❤️ Reacciones: mantener apretado (o doble clic) un mensaje.

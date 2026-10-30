@@ -17,15 +17,22 @@ export function createDictation({ createRecognition, getText, setText, onState, 
       const base = getText().trimEnd();
       session = rec;
       rec.lang = 'es-CL';
-      rec.interimResults = true;
-      rec.continuous = true;
+      // Una frase por activación. Algunos motores móviles repiten hipótesis
+      // acumuladas en modo continuo; no convertirlas en nuevos fragmentos.
+      rec.interimResults = false;
+      rec.continuous = false;
       rec.onstart = () => { if (session === rec) onState('listening'); };
       rec.onresult = (event) => {
         if (session !== rec) return;
-        // results contiene la sesión completa; reconstruir evita duplicar frases
-        // cuando un resultado provisional se convierte en definitivo.
-        const spoken = Array.from(event.results, (result) => result[0].transcript.trim()).filter(Boolean).join(' ');
+        const finalResult = Array.from(event.results).filter((result) => result.isFinal).at(-1);
+        if (!finalResult) return;
+        const spoken = finalResult[0].transcript.trim();
+        if (!spoken) return;
+        // Conservar el texto literal de la frase, incluso si se dijo «no no».
+        // Cerrar la sesión antes de escribir bloquea cualquier repetición tardía.
+        finish(rec);
         setText([base, spoken].filter(Boolean).join(' ').slice(0, maxLength));
+        try { rec.abort(); } catch {}
       };
       rec.onerror = (event) => {
         if (session !== rec) return;

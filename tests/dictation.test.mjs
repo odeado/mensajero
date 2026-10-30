@@ -30,18 +30,39 @@ test('mantiene una sesión al iniciar y escribe español en el borrador', () => 
   assert.equal(rec.lang, 'es-CL');
   rec.onstart();
   assert.equal(s.controller.active, true);
-  rec.onresult(results(['cómo estás', false]));
+  rec.onresult(results(['cómo estás', true]));
   assert.equal(s.text(), 'Hola cómo estás');
-  assert.deepEqual(s.states, ['starting', 'listening']);
+  assert.deepEqual(s.states, ['starting', 'listening', 'idle']);
+  assert.equal(rec.continuous, false);
+  assert.equal(rec.interimResults, false);
 });
-test('sustituye resultados provisionales y no duplica los definitivos', () => {
+test('no inserta provisionales y confirma una frase una sola vez', () => {
   const s = setup('Mensaje:');
   s.controller.start();
   const rec = s.recognizers[0];
   rec.onresult(results(['buen', false]));
-  rec.onresult(results(['buen día', true], ['nos', false]));
-  rec.onresult(results(['buen día', true], ['nos vemos', true]));
-  assert.equal(s.text(), 'Mensaje: buen día nos vemos');
+  assert.equal(s.text(), 'Mensaje:');
+  rec.onresult(results(['buen día', true]));
+  rec.onresult(results(['buen día', true], ['buen día', true]));
+  assert.equal(s.text(), 'Mensaje: buen día');
+  assert.equal(s.controller.active, false);
+  assert.equal(rec.aborts, 1);
+});
+test('una lista de hipótesis acumuladas no se concatena como frases nuevas', () => {
+  const s = setup('Papá:');
+  s.controller.start();
+  s.recognizers[0].onresult(results(['voy', true], ['voy para', true], ['voy para la casa', true]));
+  assert.equal(s.text(), 'Papá: voy para la casa');
+});
+test('conserva repeticiones pronunciadas y permite dictar otra frase al reactivar', () => {
+  const s = setup();
+  s.controller.start();
+  const first = s.recognizers[0];
+  first.onresult(results(['no no, estoy bien', true]));
+  s.controller.start();
+  first.onresult(results(['no no, estoy bien', true]));
+  s.recognizers[1].onresult(results(['gracias gracias', true]));
+  assert.equal(s.text(), 'no no, estoy bien gracias gracias');
 });
 test('detener durante el permiso ignora onstart y resultados tardíos', () => {
   const s = setup('Conservar');

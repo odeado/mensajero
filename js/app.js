@@ -16,7 +16,7 @@ import { playMsnCard } from "./msncard.js?v=msncard-alpha-20261025-r2";
 import { openCardGallery } from "./card-gallery.js";
 import { captureDestination, unreadInChat } from "./workflow.js";
 import { loadFailed, saveFailed, removeFailed } from "./send-store.js";
-import { createDictation } from "./dictation.js";
+import { createDictation } from "./dictation.js?v=frase-unica-20261030";
 
 // ---------- Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -1664,7 +1664,7 @@ const dictation = createDictation({
     dictateBtn.setAttribute("aria-pressed", String(isDictating));
     dictateBtn.innerHTML = isDictating ? '<span>⏹️</span>Detener dictado' : '<span>🗣️</span>Dictado';
     dictationBar.classList.toggle("hidden", !isDictating);
-    dictationStatus.textContent = state === "starting" ? "Preparando micrófono…" : "Escuchando… Habla para escribir";
+    dictationStatus.textContent = state === "starting" ? "Preparando micrófono…" : "Di una frase y haz una pausa para escribirla";
     if (state === "listening") { closeTools(); input.focus(); }
   },
   onError: (code) => {
