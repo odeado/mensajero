@@ -21,23 +21,27 @@ let jPick = null;        // jenga: { level, pos, center, width }
 let jAnim = null;        // requestAnimationFrame id
 let jLastAnimated = "";  // para no repetir la animación del bloque puesto
 
-// ---------- DOM ----------
-const menu = el("div", "game-overlay hidden");
+// ---------- DOM (usando modal unificado glassmorphism) ----------
+const menu = el("div", "modal-unified hidden");
 menu.innerHTML = `
-  <div class="game-card">
-    <div class="game-head">
-      <h3>🎮 Juegos</h3>
-      <button class="icon-btn game-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+  <div class="modal-sheet narrow">
+    <div class="modal-head">
+      <div class="modal-titles">
+        <h3>🎮 Juegos</h3>
+        <p>Elige un juego para invitar</p>
+      </div>
+      <button class="modal-close game-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <p class="game-sub">Elige un juego para invitar</p>
     <div class="game-list"></div>
   </div>`;
-const modal = el("div", "game-overlay hidden");
+const modal = el("div", "modal-unified hidden");
 modal.innerHTML = `
-  <div class="game-card game-play">
-    <div class="game-head">
-      <h3 class="g-title"></h3>
-      <button class="icon-btn game-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+  <div class="modal-sheet wide game-play">
+    <div class="modal-head">
+      <div class="modal-titles">
+        <h3 class="g-title"></h3>
+      </div>
+      <button class="modal-close game-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="g-players"></div>
     <div class="g-status"></div>

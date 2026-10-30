@@ -176,26 +176,29 @@
   align-items: center;
   padding: 12px;
 }
-.game-card {
-  background: var(--header-bg);
-  border-radius: 20px;
-  width: 100%;
-  max-width: 440px;
-  max-height: 100%;
+/* --- Juegos: estilos internos (el contenedor usa .modal-sheet del sistema unificado) --- */
+
+/* Override para modal-sheet de juegos */
+.modal-sheet.narrow {
+  width: min(360px, 100%);
+  max-height: 80vh;
   overflow-y: auto;
-  padding: 16px;
-  box-shadow: var(--shadow);
-  border: 1px solid rgba(255,255,255,.06);
 }
-.game-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.game-head h3 { font-size: 18px; }
-.game-sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 12px; }
+
+.modal-sheet.wide {
+  width: min(520px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Lista de juegos en el menú */
 .game-list { display: grid; gap: 10px; }
+
 .game-option {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: var(--input-bg);
+  background: rgba(255,255,255,.03);
   border: 2px solid transparent;
   border-radius: 14px;
   padding: 12px 14px;
@@ -204,11 +207,12 @@
   cursor: pointer;
   transition: all .15s;
 }
-.game-option:hover { border-color: var(--accent-green); transform: translateY(-1px); }
+.game-option:hover { border-color: var(--accent-green); transform: translateY(-1px); background: rgba(255,255,255,.06); }
 .go-icon { font-size: 30px; }
 .go-text { display: flex; flex-direction: column; }
 .go-text small { color: var(--text-secondary); }
 
+/* Partida en curso */
 .g-players { text-align: center; color: var(--text-secondary); font-size: 13px; white-space: pre-wrap; }
 .g-status { text-align: center; font-weight: 700; font-size: 17px; margin: 8px 0 12px; min-height: 24px; }
 .g-status.turn { color: var(--accent-green); animation: pulse 1.6s infinite; }
@@ -227,7 +231,21 @@
   cursor: pointer;
 }
 .g-btn:hover { background: var(--accent-green-hover); }
+.g-btn.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,.1);
+}
+.g-btn.ghost:hover { background: rgba(255,255,255,.06); color: var(--text-primary); }
 .g-btn.small { padding: 6px 14px; font-size: 13px; }
+
+/* Alinear botón cerrar del modal de juegos con el estilo unificado */
+.modal-sheet .game-close {
+  background: rgba(255,255,255,.06);
+}
+.modal-sheet .game-close:hover {
+  background: rgba(255,255,255,.12);
+}
 
 /* Gato */
 .g-gato {
