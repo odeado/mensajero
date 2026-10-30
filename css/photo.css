@@ -1,7 +1,11 @@
-/* Modal de fotos + cámara en vivo (panel lateral) */
+/* ==========================================================
+   MODAL UNIFICADO - Estilo Glassmorphism/Frosted Glass
+   Usado por: login, perfil, búsqueda, album, cámara, textart,
+              selector chat, lightbox, juegos
+   ========================================================== */
 
-/* ---------- Modal para elegir cámara o galería ---------- */
-.photo-modal {
+/* Overlay con blur frosted glass */
+.modal-unified {
   position: fixed;
   inset: 0;
   z-index: 500;
@@ -11,17 +15,136 @@
   background: rgba(4, 10, 14, 0.62);
   backdrop-filter: blur(7px) saturate(120%);
   -webkit-backdrop-filter: blur(7px) saturate(120%);
-  animation: photo-fade 0.18s ease-out;
+  animation: modal-fade 0.18s ease-out;
 }
 
-.photo-sheet {
+.modal-unified.low-z { z-index: 200; }
+.modal-unified.high-z { z-index: 900; }
+
+/* Hoja del modal (content) */
+.modal-sheet {
   width: min(430px, 100%);
   padding: 20px;
   border-radius: 28px;
   background: linear-gradient(165deg, #1a2830 0%, #111b21 60%, #0d151a 100%);
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  animation: photo-pop 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: modal-pop 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Variantes de tamaño */
+.modal-sheet.wide { width: min(520px, 94vw); }
+.modal-sheet.narrow { width: min(360px, 100%); }
+.modal-sheet.full { width: 100%; max-width: 100%; padding: 0; border-radius: 0; height: 100%; max-height: 100%; }
+
+/* Animaciones */
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ---------- Header del modal ---------- */
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.modal-titles h3 {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  margin-bottom: 3px;
+}
+
+.modal-titles p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.modal-close {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.modal-close:active { transform: scale(0.98); }
+
+/* Botón primario estilo modal */
+.modal-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-btn.primary {
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-green-hover));
+  color: #06110d;
+  box-shadow: 0 6px 16px rgba(100, 227, 188, 0.28);
+}
+
+.modal-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(100, 227, 188, 0.35); }
+.modal-btn.primary:active { transform: translateY(0); }
+
+.modal-btn.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,.1);
+}
+.modal-btn.ghost:hover { background: rgba(255,255,255,.06); color: var(--text-primary); }
+
+/* Input en modal */
+.modal-input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.modal-input:focus {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 3px rgba(100, 227, 188, 0.15);
+  background: rgba(255,255,255,.05);
+}
+
+.modal-input::placeholder { color: var(--text-muted); }
+
+/* Separador */
+.modal-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+  margin: 16px 0;
 }
 
 .photo-sheet-head {

@@ -30,22 +30,26 @@
 <body>
 
   <!-- Cargando -->
-  <div id="loading" class="modal-overlay">
-    <div class="brand-icon">💬</div>
+  <div id="loading" class="modal-unified">
+    <div class="brand-icon" style="font-size: 60px; animation: pulse 1.5s infinite;">💬</div>
   </div>
 
   <!-- Login -->
-  <div id="login-screen" class="modal-overlay hidden">
-    <form class="modal-card" id="login-form" autocomplete="on">
-      <div class="app-brand">
-        <div class="brand-icon">💬</div>
-        <h2>Bienvenido</h2>
-        <p id="login-hint">Ingresa tu usuario y clave</p>
+  <div id="login-screen" class="modal-unified hidden">
+    <form class="modal-sheet" id="login-form" autocomplete="on">
+      <div class="modal-head" style="justify-content: center; text-align: center; margin-bottom: 24px;">
+        <div class="modal-titles">
+          <div class="brand-icon" style="font-size: 48px; margin-bottom: 8px;">💬</div>
+          <h3>Bienvenido</h3>
+          <p id="login-hint">Ingresa tu usuario y clave</p>
+        </div>
       </div>
-      <input class="login-input" type="text" id="login-user" placeholder="Usuario (ej. Papá, Hija...)" autocomplete="username" autocapitalize="none" required autofocus>
-      <input class="login-input" type="password" id="login-pass" placeholder="Clave" autocomplete="current-password" required>
-      <p id="login-error" class="login-error hidden"></p>
-      <button type="submit" class="login-btn" id="login-btn">Entrar</button>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <input class="modal-input" type="text" id="login-user" placeholder="Usuario (ej. Papá, Hija...)" autocomplete="username" autocapitalize="none" required autofocus>
+        <input class="modal-input" type="password" id="login-pass" placeholder="Clave" autocomplete="current-password" required>
+        <p id="login-error" class="login-error hidden" style="color: #ff6b6b; font-size: 13px; text-align: center; margin: 0;"></p>
+        <button type="submit" class="modal-btn primary" id="login-btn">Entrar</button>
+      </div>
     </form>
   </div>
 
@@ -143,62 +147,66 @@
   <div id="reaction-bar" class="reaction-bar hidden"></div>
 
   <!-- Mi perfil: nombre + avatar -->
-  <div id="profile-modal" class="modal-overlay hidden">
-    <div class="modal-card profile-card">
-      <div class="game-head">
-        <h3>Mi perfil</h3>
-        <button class="icon-btn" id="profile-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+  <div id="profile-modal" class="modal-unified hidden">
+    <div class="modal-sheet profile-card">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3>Mi perfil</h3>
+          <p>Cómo te verán los demás</p>
+        </div>
+        <button class="modal-close" id="profile-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <div class="profile-preview">
-        <div class="profile-avatar" id="profile-avatar">👤</div>
+      <div class="profile-preview" style="text-align: center; margin-bottom: 16px;">
+        <div class="profile-avatar" id="profile-avatar" style="width: 80px; height: 80px; font-size: 40px; margin: 0 auto 12px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-green), var(--accent-blue)); display: flex; align-items: center; justify-content: center;">👤</div>
         <div class="profile-name-wrap">
-          <label for="profile-name">¿Cómo te llamas?</label>
-          <input type="text" id="profile-name" maxlength="24" autocomplete="off"
-                 placeholder="Ej. Papá, Amor, Andrés…">
+          <label for="profile-name" style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; text-align: left;">¿Cómo te llamas?</label>
+          <input class="modal-input" type="text" id="profile-name" maxlength="24" autocomplete="off" placeholder="Ej. Papá, Amor, Andrés…">
         </div>
       </div>
 
-      <p class="profile-hint">Así te verá la otra persona en el chat y en los avisos. Tu usuario para entrar no cambia.</p>
+      <p class="profile-hint" style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; text-align: center;">Así te verá la otra persona en el chat y en los avisos. Tu usuario para entrar no cambia.</p>
 
-      <div id="avatar-grid" class="avatar-grid"></div>
+      <div id="avatar-grid" class="avatar-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px;"></div>
 
-      <button type="button" class="profile-save" id="profile-save">Guardar cambios</button>
+      <button type="button" class="modal-btn primary" id="profile-save">Guardar cambios</button>
     </div>
   </div>
 
   <!-- Buscar mensajes -->
-  <div id="search-modal" class="modal-overlay hidden">
-    <div class="modal-card search-card">
-      <div class="game-head">
-        <h3>🔍 Buscar mensajes</h3>
-        <button class="icon-btn" id="search-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+  <div id="search-modal" class="modal-unified hidden">
+    <div class="modal-sheet search-card">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3>🔍 Buscar mensajes</h3>
+          <p>Encuentra lo que buscas al instante</p>
+        </div>
+        <button class="modal-close" id="search-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <div class="search-field">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="search" id="search-input" autocomplete="off"
-               placeholder="Palabra, frase o fecha (ej. 12/10)">
-        <button type="button" class="search-clear hidden" id="search-clear" title="Limpiar">
+      <div class="search-field" style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 0 14px; margin-bottom: 12px;">
+        <i class="fa-solid fa-magnifying-glass" style="color: var(--text-secondary); font-size: 16px;"></i>
+        <input class="modal-input" type="search" id="search-input" autocomplete="off" placeholder="Palabra, frase o fecha (ej. 12/10)" style="border: none; background: transparent; padding: 13px 0; width: 100%;">
+        <button type="button" class="search-clear hidden" id="search-clear" title="Limpiar" style="background: none; border: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; padding: 4px;">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <p class="search-meta" id="search-meta">Escribe para buscar en esta conversación.</p>
-      <div class="search-results" id="search-results"></div>
-      <button type="button" class="search-more hidden" id="search-more">Buscar en mensajes más antiguos</button>
+      <p class="search-meta" id="search-meta" style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px;">Escribe para buscar en esta conversación.</p>
+      <div class="search-results" id="search-results" style="max-height: 50vh; overflow-y: auto;"></div>
+      <button type="button" class="modal-btn ghost" id="search-more" style="display: none;">Buscar en mensajes más antiguos</button>
     </div>
   </div>
 
   <!-- Álbum de fotos del chat -->
-  <div id="album-modal" class="photo-modal hidden">
-    <div class="photo-sheet album-sheet" role="dialog" aria-modal="true" aria-labelledby="album-title">
-      <div class="photo-sheet-head">
-        <div class="photo-sheet-titles">
+  <div id="album-modal" class="modal-unified hidden">
+    <div class="modal-sheet album-sheet" role="dialog" aria-modal="true" aria-labelledby="album-title">
+      <div class="modal-head">
+        <div class="modal-titles">
           <h3 id="album-title">🖼️ Álbum del chat</h3>
           <p id="album-meta">Todas las fotos compartidas</p>
         </div>
-        <button class="photo-close" id="album-close" type="button" aria-label="Cerrar">
+        <button class="modal-close" id="album-close" type="button" aria-label="Cerrar">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -214,90 +222,92 @@
   </div>
 
   <!-- Modal selector de chat (solo para usuarios con múltiples chats como Papá) -->
-  <div id="chat-picker-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="game-head">
-        <h3>💬 Elige con quién chatear</h3>
-        <button class="icon-btn" id="chat-picker-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+  <div id="chat-picker-modal" class="modal-unified hidden">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3>💬 Elige con quién chatear</h3>
+          <p>Chats separados y completamente privados</p>
+        </div>
+        <button class="modal-close" id="chat-picker-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">Chats separados y completamente privados:</p>
-      <div class="profiles-grid" id="chat-picker-grid"></div>
+      <div class="profiles-grid" id="chat-picker-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"></div>
     </div>
   </div>
 
   <!-- Elegir origen de la foto (cámara o galería) -->
-  <div id="photo-source-modal" class="photo-modal hidden">
-    <div class="photo-sheet" role="dialog" aria-modal="true" aria-labelledby="photo-title">
-      <div class="photo-sheet-head">
-        <div class="photo-sheet-titles">
+  <div id="photo-source-modal" class="modal-unified hidden">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="photo-title">
+      <div class="modal-head">
+        <div class="modal-titles">
           <h3 id="photo-title">Enviar una foto</h3>
           <p>Elige cómo quieres compartirla</p>
         </div>
-        <button class="photo-close" id="photo-source-close" type="button" aria-label="Cerrar">
+        <button class="modal-close" id="photo-source-close" type="button" aria-label="Cerrar">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="photo-options">
-        <button type="button" class="photo-option photo-option-cam" id="photo-camera">
-          <span class="photo-option-icon"><i class="fa-solid fa-camera"></i></span>
-          <span class="photo-option-text">
+      <div class="photo-options" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+        <button type="button" class="photo-option photo-option-cam modal-btn ghost" id="photo-camera" style="justify-content: flex-start; text-align: left; padding: 14px 16px; gap: 14px;">
+          <span class="photo-option-icon" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-green), var(--accent-blue)); display: flex; align-items: center; justify-content: center; font-size: 18px;"><i class="fa-solid fa-camera"></i></span>
+          <span class="photo-option-text" style="flex: 1; text-align: left;">
             <strong>Cámara</strong>
             <small>Tomar una foto ahora</small>
           </span>
-          <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
+          <i class="fa-solid fa-chevron-right photo-option-arrow" style="color: var(--text-muted);"></i>
         </button>
 
-        <button type="button" class="photo-option photo-option-gal" id="photo-gallery">
-          <span class="photo-option-icon"><i class="fa-regular fa-images"></i></span>
-          <span class="photo-option-text">
+        <button type="button" class="photo-option photo-option-gal modal-btn ghost" id="photo-gallery" style="justify-content: flex-start; text-align: left; padding: 14px 16px; gap: 14px;">
+          <span class="photo-option-icon" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); display: flex; align-items: center; justify-content: center; font-size: 18px;"><i class="fa-regular fa-images"></i></span>
+          <span class="photo-option-text" style="flex: 1; text-align: left;">
             <strong>Galería</strong>
             <small>Elegir una imagen guardada</small>
           </span>
-          <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
+          <i class="fa-solid fa-chevron-right photo-option-arrow" style="color: var(--text-muted);"></i>
         </button>
 
-        <button type="button" class="photo-option photo-option-album" id="photo-album">
-          <span class="photo-option-icon"><i class="fa-solid fa-photo-film"></i></span>
-          <span class="photo-option-text">
+        <button type="button" class="photo-option photo-option-album modal-btn ghost" id="photo-album" style="justify-content: flex-start; text-align: left; padding: 14px 16px; gap: 14px;">
+          <span class="photo-option-icon" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-orange), var(--accent-red)); display: flex; align-items: center; justify-content: center; font-size: 18px;"><i class="fa-solid fa-photo-film"></i></span>
+          <span class="photo-option-text" style="flex: 1; text-align: left;">
             <strong>Álbum del chat</strong>
             <small>Ver todas las fotos compartidas</small>
           </span>
-          <i class="fa-solid fa-chevron-right photo-option-arrow"></i>
+          <i class="fa-solid fa-chevron-right photo-option-arrow" style="color: var(--text-muted);"></i>
         </button>
       </div>
 
-      <label class="postal-toggle" for="postal-check">
-        <span class="postal-icon">📮</span>
+      <label class="postal-toggle" for="postal-check" style="display: flex; align-items: center; gap: 11px; margin-top: 10px; padding: 11px 13px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.07); background: rgba(255, 255, 255, 0.035); cursor: pointer; user-select: none; transition: border-color 0.15s ease, background 0.15s ease;">
+        <span class="postal-icon" style="font-size: 22px;">📮</span>
         <span class="postal-text">
           <strong>Foto con marco y fecha</strong>
           <small>Estilo postal con el día y la hora</small>
         </span>
-        <input type="checkbox" id="postal-check">
-        <span class="switch" aria-hidden="true"></span>
+        <input type="checkbox" id="postal-check" style="position: absolute; opacity: 0;">
+        <span class="switch" aria-hidden="true" style="width: 44px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.1); position: relative; transition: background 0.2s; flex-shrink: 0;"></span>
       </label>
 
-      <label class="postal-toggle live-toggle" for="live-check">
-        <span class="postal-icon live-icon">✨</span>
+      <label class="postal-toggle live-toggle" for="live-check" style="display: flex; align-items: center; gap: 11px; margin-top: 10px; padding: 11px 13px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.07); background: rgba(255, 255, 255, 0.035); cursor: pointer; user-select: none; transition: border-color 0.15s ease, background 0.15s ease;">
+        <span class="postal-icon live-icon" style="font-size: 22px; background: linear-gradient(135deg, rgba(0, 168, 132, 0.22), rgba(139, 92, 246, 0.28)); border-radius: 12px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">✨</span>
         <span class="postal-text">
           <strong>Foto viva</strong>
           <small>Se mueve sola: paneo lento o fade</small>
         </span>
-        <input type="checkbox" id="live-check">
-        <span class="switch" aria-hidden="true"></span>
+        <input type="checkbox" id="live-check" style="position: absolute; opacity: 0;">
+        <span class="switch" aria-hidden="true" style="width: 44px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.1); position: relative; transition: background 0.2s; flex-shrink: 0;"></span>
       </label>
 
-      <div class="live-effects hidden" id="live-effects">
-        <button type="button" class="live-chip selected" data-effect="pan">
-          <i class="fa-solid fa-arrows-left-right"></i> Paneo
+      <div class="live-effects hidden" id="live-effects" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+        <button type="button" class="live-chip selected" data-effect="pan" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 999px; background: rgba(255, 255, 255, 0.04); color: var(--text-secondary); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;">
+          <i class="fa-solid fa-arrows-left-right" style="font-size: 11px;"></i> Paneo
         </button>
-        <button type="button" class="live-chip" data-effect="fade">
-          <i class="fa-solid fa-star"></i> Fade
+        <button type="button" class="live-chip" data-effect="fade" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 999px; background: rgba(255, 255, 255, 0.04); color: var(--text-secondary); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;">
+          <i class="fa-solid fa-star" style="font-size: 11px;"></i> Fade
         </button>
-        <span class="live-hint" id="live-hint">Si eliges varias fotos, se pasan solas.</span>
+        <span class="live-hint" id="live-hint" style="flex: 1 1 100%; font-size: 11px; color: var(--text-muted); padding-left: 3px;">Si eliges varias fotos, se pasan solas.</span>
       </div>
 
-      <p class="photo-note"><i class="fa-solid fa-bolt"></i> Se optimiza antes de enviarse</p>
+      <p class="photo-note" style="font-size: 11px; color: var(--text-muted); margin-top: 16px; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-bolt"></i> Se optimiza antes de enviarse</p>
     </div>
   </div>
 
@@ -343,36 +353,37 @@
   </aside>
 
   <!-- Texto grande (palabras como sticker) -->
-  <div id="textart-modal" class="photo-modal hidden">
-    <div class="photo-sheet textart-sheet" role="dialog" aria-modal="true" aria-labelledby="textart-title">
-      <div class="photo-sheet-head">
-        <div class="photo-sheet-titles">
+  <div id="textart-modal" class="modal-unified hidden">
+    <div class="modal-sheet textart-sheet" role="dialog" aria-modal="true" aria-labelledby="textart-title">
+      <div class="modal-head">
+        <div class="modal-titles">
           <h3 id="textart-title">Texto grande ✨</h3>
           <p>Escribe una palabra y elige el estilo</p>
         </div>
-        <button class="photo-close" id="textart-close" type="button" aria-label="Cerrar">
+        <button class="modal-close" id="textart-close" type="button" aria-label="Cerrar">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="textart-preview" id="textart-preview"></div>
+      <div class="textart-preview" id="textart-preview" style="margin-bottom: 16px;"></div>
 
-      <input type="text" id="textart-input" class="textart-input" maxlength="24"
-             placeholder="Ej. amor, te quiero, feliz día…" autocomplete="off">
+      <input class="modal-input" type="text" id="textart-input" maxlength="24" placeholder="Ej. amor, te quiero, feliz día…" autocomplete="off" style="margin-bottom: 16px;">
 
-      <div class="textart-styles" id="textart-styles"></div>
+      <div class="textart-styles" id="textart-styles" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;"></div>
 
-      <button type="button" class="textart-send" id="textart-send" disabled>Enviar ✨</button>
+      <button type="button" class="modal-btn primary" id="textart-send" disabled>Enviar ✨</button>
     </div>
   </div>
 
   <!-- Visor de fotos (con efectos live: paneo/fade) -->
-  <div id="lightbox-modal" class="lightbox-modal hidden">
-    <button class="lightbox-close" id="lightbox-close">&times;</button>
-    <div id="lightbox-container" class="lightbox-container"></div>
-    <a id="lightbox-download" href="#" download="foto.jpg" class="lightbox-download-btn">
-      <i class="fa-solid fa-download"></i> Descargar foto
-    </a>
+  <div id="lightbox-modal" class="modal-unified high-z hidden">
+    <div class="modal-sheet full" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; max-height: 100vh; max-width: 100vw;">
+      <button class="modal-close" id="lightbox-close" style="position: fixed; top: 20px; right: 20px; z-index: 10;" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      <div id="lightbox-container" class="lightbox-container" style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 20px;"></div>
+      <a id="lightbox-download" href="#" download="foto.jpg" class="modal-btn primary" style="margin-bottom: 24px; max-width: 300px;">
+        <i class="fa-solid fa-download"></i> Descargar foto
+      </a>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
