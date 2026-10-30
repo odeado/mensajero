@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
   <link rel="stylesheet" href="css/textart.css?v=texto-grande-20261026">
   <link rel="stylesheet" href="css/features.css?v=foto-viva-20261028">
-  <link rel="stylesheet" href="css/composer.css?v=20261029">
+  <link rel="stylesheet" href="css/composer.css?v=dictado-20261030">
 </head>
 <body>
 
@@ -88,6 +88,11 @@
 
     <div id="emoji-panel" class="emoji-panel hidden"></div>
 
+    <div id="dictation-bar" class="dictation-bar hidden" role="region" aria-label="Dictado por voz">
+      <span id="dictation-status" role="status" aria-live="polite">Preparando micrófono…</span>
+      <button type="button" id="dictation-stop">Detener</button>
+    </div>
+
     <div id="rec-bar" class="rec-bar hidden">
       <span class="rec-dot"></span>
       <span class="rec-time" id="rec-time">0:00</span>
@@ -106,7 +111,7 @@
       <div class="tools-grid">
         <button type="button" id="btn-attach"><span>📷</span>Fotos</button>
         <button type="button" id="mic-btn"><span>🎙️</span>Nota de voz</button>
-        <button type="button" id="btn-dictate"><span>🗣️</span>Dictado</button>
+        <button type="button" id="btn-dictate" aria-pressed="false"><span>🗣️</span>Dictado</button>
         <button type="button" id="btn-emoji"><span>😊</span>Emojis</button>
         <button type="button" id="btn-games"><span>🎮</span>Juegos</button>
         <button type="button" id="btn-send-card"><span>🎁</span>Tarjetas</button>
@@ -372,6 +377,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=indices-20261030"></script>
+  <script type="module" src="js/app.js?v=dictado-20261030"></script>
 </body>
 </html>

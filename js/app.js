@@ -16,6 +16,7 @@ import { playMsnCard } from "./msncard.js?v=msncard-alpha-20261025-r2";
 import { openCardGallery } from "./card-gallery.js";
 import { captureDestination, unreadInChat } from "./workflow.js";
 import { loadFailed, saveFailed, removeFailed } from "./send-store.js";
+import { createDictation } from "./dictation.js";
 
 // ---------- Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -392,6 +393,7 @@ function startChat() {
 }
 
 function stopChat() {
+  stopDictation();
   try { window.MensajeroNative?.chatHidden?.(); } catch {}
   closeTools();
   closeGame();
@@ -791,6 +793,7 @@ function sendMessage(fields, target = captureDestination(me, currentChatId)) {
 
 sendForm.addEventListener("submit", (e) => {
   e.preventDefault();
+  stopDictation();
   const text = input.value.trim();
   if (!text || !me) return;
   input.value = "";
@@ -1339,6 +1342,7 @@ function buildTextartStyles() {
 }
 
 function openTextart() {
+  stopDictation();
   textartModal._destination = captureDestination(me, currentChatId);
   const typed = input.value.trim();
   textartModal.classList.remove("hidden");
@@ -1638,117 +1642,59 @@ micBtn.addEventListener("click", () => {
 recCancel.addEventListener("click", () => stopRecording(false));
 recSend.addEventListener("click", () => stopRecording(true));
 
-// ---------- Dictado por voz (Speech-to-Text) ----------
-let recognition = null;
+// ---------- Dictado: escribe un borrador; enviar siempre es una acción manual ----------
 let isDictating = false;
-let dictationBaseText = "";
-
-function getRecognition() {
-  if (!("SpeechRecognition" in window) && !("webkitSpeechRecognition" in window)) {
-    return null;
-  }
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SpeechRecognition();
-  rec.lang = "es-ES";
-  rec.interimResults = true;
-  rec.continuous = true;
-  return rec;
-}
-
-function startDictation() {
-  if (isDictating || !me) return;
-  // Detener grabación de voz si está activa
-  if (mediaRecorder) stopRecording(false);
-  
-  const rec = getRecognition();
-  if (!rec) {
-    toast("Tu navegador no soporta dictado por voz.");
-    return;
-  }
-  recognition = rec;
-
-  // Guardar el texto base antes de empezar a dictar
-  dictationBaseText = input.value;
-
-  recognition.onstart = () => {
-    isDictating = true;
-    dictateBtn.classList.add("dictating");
-    dictateBtn.innerHTML = '<span>⏹️</span>Detener dictado';
-    closeTools();
-    input.focus();
-    toast("🎤 Escuchando... Habla ahora");
-  };
-
-  recognition.onresult = (event) => {
-    let interimTranscript = "";
-    let finalTranscript = "";
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript + " ";
-      } else {
-        interimTranscript += transcript;
-      }
-    }
-
-    // Construir el texto: base + final + interim
-    let newText = dictationBaseText;
-    if (finalTranscript) {
-      newText += (newText ? " " : "") + finalTranscript;
-      // Actualizar la base para que los siguientes resultados se añadan correctamente
-      dictationBaseText = newText.trim();
-    }
-    if (interimTranscript) {
-      newText += (newText ? " " : "") + interimTranscript;
-    }
-    input.value = newText.trim();
+const dictationBar = $("dictation-bar");
+const dictationStatus = $("dictation-status");
+const dictation = createDictation({
+  createRecognition: () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    return Recognition ? new Recognition() : null;
+  },
+  getText: () => input.value,
+  setText: (text) => {
+    input.value = text;
     updateComposerButtons();
-  };
-
-  recognition.onerror = (event) => {
-    console.error("Speech recognition error:", event.error);
-    if (event.error !== "no-speech" && event.error !== "aborted") {
-      toast("Error en el dictado: " + event.error);
-    }
-    stopDictation();
-  };
-
-  recognition.onend = () => {
-    stopDictation();
-  };
-
-  try {
-    recognition.start();
-  } catch (err) {
-    console.error("Error starting recognition:", err);
-    toast("No se pudo iniciar el dictado");
+    sendTyping(Boolean(text));
+  },
+  maxLength: input.maxLength,
+  onState: (state) => {
+    isDictating = state !== "idle";
+    dictateBtn.classList.toggle("dictating", isDictating);
+    dictateBtn.setAttribute("aria-pressed", String(isDictating));
+    dictateBtn.innerHTML = isDictating ? '<span>⏹️</span>Detener dictado' : '<span>🗣️</span>Dictado';
+    dictationBar.classList.toggle("hidden", !isDictating);
+    dictationStatus.textContent = state === "starting" ? "Preparando micrófono…" : "Escuchando… Habla para escribir";
+    if (state === "listening") { closeTools(); input.focus(); }
+  },
+  onError: (code) => {
+    const messages = {
+      unsupported: "Este navegador no permite dictado. Puedes usar el micrófono del teclado del teléfono.",
+      "not-allowed": "El micrófono está bloqueado. Revisa el permiso de este sitio en el navegador.",
+      "service-not-allowed": "El servicio de dictado no está disponible en este navegador.",
+      "audio-capture": "No se pudo acceder al micrófono. Comprueba si otra app lo está usando.",
+      network: "El dictado no pudo conectarse. Revisa tu conexión.",
+      "no-speech": "No se detectó voz. Toca Dictado para intentarlo otra vez.",
+      "language-not-supported": "El servicio no admite el idioma del dictado en este dispositivo."
+    };
+    toast(messages[code] || "No se pudo iniciar el dictado. Inténtalo otra vez.");
   }
-}
-
-function stopDictation() {
-  if (!isDictating) return;
-  isDictating = false;
-  if (recognition) {
-    try { recognition.stop(); } catch {}
-    recognition = null;
-  }
-  dictateBtn.classList.remove("dictating");
-  dictateBtn.innerHTML = '<span>🗣️</span>Dictado';
-  dictationBaseText = "";
-}
-
-dictateBtn.addEventListener("click", () => {
-  if (isDictating) stopDictation();
-  else startDictation();
 });
-
-// Detener dictado si se cierra el panel de herramientas o se cambia de chat
-const originalCloseTools = closeTools;
-closeTools = function(restoreFocus = false) {
-  if (isDictating) stopDictation();
-  return originalCloseTools(restoreFocus);
-};
+function stopDictation() { dictation.stop(); }
+function startDictation() {
+  if (!me || dictation.active) return;
+  if (requestingMic) return toast("Espera a que termine el permiso del micrófono.");
+  if (mediaRecorder) stopRecording(false);
+  dictation.start();
+}
+dictateBtn.addEventListener("click", () => dictation.active ? stopDictation() : startDictation());
+$("dictation-stop").addEventListener("click", stopDictation);
+// Editar manualmente conserva las correcciones frente a resultados posteriores.
+input.addEventListener("input", stopDictation);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") stopDictation();
+});
+window.addEventListener("pagehide", stopDictation);
 
 async function compressImage(file, { postal = false, limit: LIMIT = 700_000 } = {}) {
   const img = await loadImage(file);

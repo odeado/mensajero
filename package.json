@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "deploy:indexes": "firebase deploy --only firestore:indexes --project familia-a9fb6",
-    "test": "node --test tests/workflow.test.mjs",
+    "test": "node --test tests/workflow.test.mjs tests/dictation.test.mjs",
     "test:rules": "firebase emulators:exec --only firestore --project demo-mensajero \"node --test --test-concurrency=1 tests/firestore.test.mjs tests/migration.test.mjs\"",
     "migrate:chats": "node scripts/migrate-chats.mjs"
   },

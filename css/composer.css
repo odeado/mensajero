@@ -1,4 +1,7 @@
 :root { --composer-radius: 24px; --tool-accent: #64e3bc; }
+.dictation-bar { display: flex; align-items: center; gap: 12px; flex-shrink: 0; background: var(--header-bg); color: var(--text-primary); padding: 8px 16px; font-size: 13px; }
+.dictation-bar span { flex: 1; }
+.dictation-bar button { border: 1px solid var(--tool-accent); border-radius: 12px; background: transparent; color: var(--tool-accent); min-height: 44px; padding: 6px 14px; font: inherit; cursor: pointer; }
 .header-user-info { flex: 1; min-width: 0; }
 .header-user-info .current-avatar { flex-shrink: 0; }
 .user-details { min-width: 0; }
