@@ -191,6 +191,7 @@ onAuthStateChanged(auth, (user) => {
   if (!user) return showLogin();
 
   const email = (user.email || "").toLowerCase();
+  console.log("🔐 Usuario autenticado:", email, "UID:", user.uid);
   const profile = FAMILY[email];
   if (!profile) {
     signOut(auth);
