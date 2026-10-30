@@ -461,14 +461,24 @@
 }
 
 .lightbox-container .live-photo {
-  width: auto;
+  width: min(92vw, 550px);
   max-width: 100%;
-  max-height: 80vh;
+  max-height: 75vh;
 }
 
 .lightbox-container .live-window {
   border-radius: 8px;
-  max-height: 80vh;
+  max-height: 65vh;
+}
+
+.lightbox-container .live-photo.framed {
+  padding: 14px 14px 0;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6);
+}
+
+.lightbox-container .live-date {
+  font-size: 14px;
+  padding: 12px 6px 15px;
 }
 
 .lightbox-container .live-img {
@@ -1020,6 +1030,19 @@
 
   .live-photo {
     width: min(234px, 64vw);
+  }
+
+  /* Lightbox móvil: ocupa casi toda la pantalla */
+  .lightbox-container .live-photo {
+    width: 96vw;
+    max-width: 96vw;
+  }
+  .lightbox-container .live-window {
+    border-radius: 6px;
+  }
+  .lightbox-container .live-photo.framed {
+    padding: 10px 10px 0;
+    border-radius: 10px;
   }
 
   .rec-hint {
