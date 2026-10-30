@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
   <link rel="stylesheet" href="css/textart.css?v=texto-grande-20261026">
   <link rel="stylesheet" href="css/features.css?v=foto-viva-20261028">
+  <link rel="stylesheet" href="css/composer.css?v=20261029">
 </head>
 <body>
 
@@ -65,10 +66,6 @@
         <button class="icon-btn hidden" id="switch-chat-btn" title="Cambiar de chat"><i class="fa-solid fa-users"></i></button>
         <button class="icon-btn" id="search-btn" title="Buscar mensajes"><i class="fa-solid fa-magnifying-glass"></i></button>
         <button class="me-btn" id="me-btn" title="Mi perfil"></button>
-        <button class="icon-btn" id="bell-btn" title="Notificaciones"><i class="fa-solid fa-bell-slash"></i></button>
-        <button class="icon-btn" id="logout-btn" title="Cerrar sesión / cambiar usuario">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
       </div>
     </header>
 
@@ -103,30 +100,35 @@
       </button>
     </div>
 
+    <div id="failed-sends" class="failed-sends hidden" role="status" aria-live="polite"></div>
+    <section id="tools-panel" class="tools-panel hidden" aria-label="Funciones del chat">
+      <div class="tools-heading"><div><strong>Comparte algo más</strong><span>Todo lo que puedes hacer, en un lugar</span></div><button type="button" id="tools-close" aria-label="Cerrar funciones">×</button></div>
+      <div class="tools-grid">
+        <button type="button" id="btn-attach"><span>📷</span>Fotos</button>
+        <button type="button" id="mic-btn"><span>🎙️</span>Nota de voz</button>
+        <button type="button" id="btn-dictate"><span>🗣️</span>Dictado</button>
+        <button type="button" id="btn-emoji"><span>😊</span>Emojis</button>
+        <button type="button" id="btn-games"><span>🎮</span>Juegos</button>
+        <button type="button" id="btn-send-card"><span>🎁</span>Tarjetas</button>
+        <button type="button" id="btn-textart"><span>✨</span>Texto grande</button>
+        <button type="button" id="tools-album"><span>🖼️</span>Álbum</button>
+      </div>
+      <div class="tools-secondary">
+        <button type="button" id="bell-btn" title="Notificaciones">🔔 Avisos</button>
+        <button type="button" id="logout-btn" title="Cerrar sesión / cambiar usuario">Cerrar sesión</button>
+      </div>
+    </section>
     <form class="chat-input-bar" id="send-form">
       <input type="file" id="file-input" accept="image/*" multiple class="hidden">
       <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
       <input type="file" id="card-file-input" accept=".msncard,.json" class="hidden">
-      <button type="button" class="icon-btn" id="btn-send-card" title="Enviar presentación 🎁">
-        <i class="fa-solid fa-gift"></i>
-      </button>
-      <button type="button" class="icon-btn" id="btn-games" title="Juegos">
-        <i class="fa-solid fa-gamepad"></i>
-      </button>
-      <button type="button" class="icon-btn" id="btn-attach" title="Enviar foto">
-        <i class="fa-solid fa-camera"></i>
+      <button type="button" class="icon-btn tools-toggle" id="tools-toggle" aria-label="Abrir funciones" aria-expanded="false" aria-controls="tools-panel">
+        <span aria-hidden="true">+</span>
       </button>
       <div class="input-wrapper">
-        <button type="button" class="emoji-toggle" id="btn-emoji" title="Emojis">😊</button>
-        <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off" enterkeyhint="send" maxlength="4000">
-        <button type="button" class="ta-open hidden" id="btn-textart" title="Convertir en texto grande ✨">
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-        </button>
+        <input type="text" id="message-input" aria-label="Mensaje" placeholder="Escribe un mensaje..." autocomplete="off" enterkeyhint="send" maxlength="4000">
       </div>
-      <button type="button" class="icon-btn mic-btn" id="mic-btn" title="Grabar nota de voz">
-        <i class="fa-solid fa-microphone"></i>
-      </button>
-      <button type="submit" class="icon-btn send-btn" id="send-btn" title="Enviar">
+      <button type="submit" class="icon-btn send-btn" id="send-btn" title="Enviar" aria-label="Enviar mensaje" disabled>
         <i class="fa-solid fa-paper-plane"></i>
       </button>
     </form>
@@ -370,6 +372,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=foto-viva-20261028"></script>
+  <script type="module" src="js/app.js?v=flujo-20261029"></script>
 </body>
 </html>

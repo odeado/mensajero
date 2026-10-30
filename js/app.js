@@ -5,15 +5,17 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, query, where, orderBy, limit, limitToLast, onSnapshot, addDoc, doc, setDoc, updateDoc, getDocs,
-  writeBatch, serverTimestamp, deleteField, connectFirestoreEmulator
+  collection, query, where, orderBy, limit, limitToLast, onSnapshot, doc, setDoc, updateDoc, getDocs,
+  writeBatch, serverTimestamp, deleteField, connectFirestoreEmulator, startAfter
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { AVATARS, REACTIONS, emojiOnlyCount, createEmojiPicker, insertAtCursor } from "./emoji.js";
 import { registerSW, notify, notifState, toggleNotifications, pop } from "./notify.js";
-import { initGames, openGamesMenu, openGame } from "./games.js";
+import { initGames, openGamesMenu, openGame, closeGame } from "./games.js";
 import { GAMES } from "./games-logic.js";
 import { playMsnCard } from "./msncard.js?v=msncard-alpha-20261025-r2";
 import { openCardGallery } from "./card-gallery.js";
+import { captureDestination, unreadInChat } from "./workflow.js";
+import { loadFailed, saveFailed, removeFailed } from "./send-store.js";
 
 // ---------- Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -92,6 +94,7 @@ const albumGrid = $("album-grid");
 const albumMeta = $("album-meta");
 const albumEmpty = $("album-empty");
 const micBtn = $("mic-btn");
+const dictateBtn = $("btn-dictate");
 const recBar = $("rec-bar");
 const recTime = $("rec-time");
 const recCancel = $("rec-cancel");
@@ -104,6 +107,33 @@ const chatPickerModal = $("chat-picker-modal");
 const chatPickerClose = $("chat-picker-close");
 const chatPickerGrid = $("chat-picker-grid");
 const welcomeText = $("welcome-text");
+const toolsToggle = $("tools-toggle");
+const toolsPanel = $("tools-panel");
+function closeTools(restoreFocus = false) {
+  toolsPanel.classList.add("hidden");
+  toolsToggle.setAttribute("aria-expanded", "false");
+  toolsToggle.setAttribute("aria-label", "Abrir funciones");
+  if (restoreFocus) toolsToggle.focus();
+}
+toolsToggle.addEventListener("click", () => {
+  const open = toolsPanel.classList.contains("hidden");
+  toolsPanel.classList.toggle("hidden", !open);
+  toolsToggle.setAttribute("aria-expanded", String(open));
+  toolsToggle.setAttribute("aria-label", open ? "Cerrar funciones" : "Abrir funciones");
+  emojiPanel.classList.add("hidden");
+  if (open) toolsPanel.querySelector(".tools-grid button").focus();
+});
+$("tools-close").addEventListener("click", () => closeTools(true));
+$("tools-album").addEventListener("click", openAlbum);
+toolsPanel.addEventListener("click", (event) => {
+  if (event.target.closest(".tools-grid button")) closeTools();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !toolsPanel.classList.contains("hidden")) closeTools(true);
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!toolsPanel.contains(event.target) && !toolsToggle.contains(event.target)) closeTools();
+});
 
 // ---------- Estado ----------
 const PAGE = 50;
@@ -128,6 +158,7 @@ let keepScrollFromBottom = null;
 let unreadHidden = 0;
 let reactTarget = null;   // id del mensaje al que se reacciona
 const bubbles = new Map(); // id -> element
+const drafts = new Map();
 
 // ---------- Avatares y nombres guardados ----------
 function cachedAvatar(email) {
@@ -187,10 +218,18 @@ onAuthStateChanged(auth, (user) => {
   me = { uid: user.uid, email, ...profile, name: cachedName(email), avatar: cachedAvatar(email) };
 
   // Guardar/recuperar último chat seleccionado
-  const savedChat = localStorage.getItem("last_chat_" + email);
+  let savedChat;
+  try { savedChat = localStorage.getItem("last_chat_" + email); } catch {}
   const initialChat = availableChats.find((c) => c.id === savedChat) || availableChats[0];
 
   selectChat(initialChat.id);
+  loadFailed().then((items) => {
+    if (me?.uid !== user.uid) return;
+    for (const item of items) {
+      if (item.target.uid === me.uid && !failedSends.has(item.id)) failedSends.set(item.id, { ...item, busy: false });
+    }
+    renderFailedSends();
+  }).catch((error) => console.warn("Reintentos disponibles solo durante esta sesión", error));
 });
 
 function showLogin(msg = "") {
@@ -227,6 +266,7 @@ loginForm.addEventListener("submit", async (e) => {
 
 logoutBtn.addEventListener("click", async () => {
   if (!confirm("¿Cerrar sesión?")) return;
+  if (isDictating) stopDictation();
   await setStatus({ online: false, typing: false }).catch(() => {});
   stopChat();
   await signOut(auth);
@@ -255,6 +295,19 @@ function selectChat(chatId) {
   const target = availableChats.find((c) => c.id === chatId);
   if (!target) return;
 
+  if (currentChatId !== chatId) {
+    if (currentChatId) drafts.set(`${me.uid}/${currentChatId}`, input.value);
+    closeGame();
+    closeTextart();
+    closeCameraDock();
+    if (isDictating) stopDictation();
+    input.value = drafts.get(`${me.uid}/${chatId}`) || "";
+    keepScrollFromBottom = null;
+    unreadHidden = 0;
+    partnerStatus = null;
+    clearTimeout(typingHideTimer);
+    typingIndicator.classList.add("hidden");
+  }
   currentChatId = chatId;
   try { localStorage.setItem("last_chat_" + me.email, chatId); } catch {}
 
@@ -266,6 +319,8 @@ function selectChat(chatId) {
   };
 
   startChat();
+  updateComposerButtons();
+  renderFailedSends();
   syncNativeChat();
 }
 
@@ -336,6 +391,18 @@ function startChat() {
 }
 
 function stopChat() {
+  try { window.MensajeroNative?.chatHidden?.(); } catch {}
+  closeTools();
+  closeGame();
+  if (mediaRecorder) stopRecording(false);
+  for (const modal of [albumModal, lightbox, profileModal, searchModal, photoModal, chatPickerModal, emojiPanel]) modal.classList.add("hidden");
+  closeTextart();
+  closeCameraDock();
+  albumGrid.replaceChildren();
+  $("failed-sends").replaceChildren();
+  $("failed-sends").classList.add("hidden");
+  input.value = "";
+  currentChatId = null;
   unsubMessages?.(); unsubMessages = null;
   unsubStatus?.(); unsubStatus = null;
   clearInterval(heartbeatTimer);
@@ -388,11 +455,10 @@ function subscribeMessages() {
   list.innerHTML = "";
   let first = true;
 
-  // Consulta por fecha (orden natural de Firestore sin requerir índice compuesto)
-  // y separamos/mostramos en cliente solo los de este chat.
-  // Los mensajes históricos anteriores no tenían chatId: pertenecen al chat con la Hija ("papa_hija").
+  // El servidor filtra antes de limitar; cada conversación tiene su propio historial.
   const q = query(
     collection(db, "messages"),
+    where("chatId", "==", currentChatId),
     orderBy("createdAt"),
     limitToLast(msgLimit)
   );
@@ -662,14 +728,56 @@ searchMore.addEventListener("click", () => {
 });
 
 // ---------- Enviar ----------
-function sendMessage(fields) {
-  return addDoc(collection(db, "messages"), {
-    chatId: currentChatId,
-    senderUid: me.uid,
-    ...fields,
-    createdAt: serverTimestamp(),
-    read: false
-  }).catch((err) => { console.error(err); toast("No se pudo enviar."); });
+const failedSends = new Map();
+function renderFailedSends() {
+  const panel = $("failed-sends");
+  panel.replaceChildren();
+  for (const [id, item] of failedSends) {
+    if (item.target.uid !== me?.uid || item.target.chatId !== currentChatId) continue;
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    label.textContent = `${item.busy ? "Enviando…" : "No enviado:"} ${messagePreview(item.fields).slice(0, 90)}`;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.textContent = "Reintentar";
+    retry.disabled = item.busy;
+    retry.addEventListener("click", () => attemptSend(id));
+    row.append(label, retry);
+    panel.append(row);
+  }
+  panel.classList.toggle("hidden", !panel.childElementCount);
+}
+
+async function attemptSend(id) {
+  const item = failedSends.get(id);
+  if (!item || item.busy) return false;
+  if (me?.uid !== item.target.uid) return false;
+  item.busy = true;
+  renderFailedSends();
+  try {
+    // Reutilizar el documento evita duplicados cuando se reintenta.
+    await setDoc(doc(db, "messages", id), {
+      ...item.fields, chatId: item.target.chatId, senderUid: item.target.uid,
+      createdAt: serverTimestamp(), read: false
+    });
+    failedSends.delete(id);
+    await removeFailed(id).catch(console.warn);
+    return true;
+  } catch (error) {
+    console.error(error);
+    item.busy = false;
+    await saveFailed(id, item).catch(console.warn);
+    toast("No se pudo enviar. Puedes reintentarlo en esta conversación.");
+    return false;
+  } finally {
+    renderFailedSends();
+  }
+}
+
+function sendMessage(fields, target = captureDestination(me, currentChatId)) {
+  const ref = doc(collection(db, "messages"));
+  failedSends.set(ref.id, { fields, target, busy: false });
+  return attemptSend(ref.id);
 }
 
 sendForm.addEventListener("submit", (e) => {
@@ -701,6 +809,7 @@ let camTorch = false;
 let camZoom = 1;
 
 function pickPhoto(inputEl) {
+  inputEl._destination = captureDestination(me, currentChatId);
   inputEl.click();
 }
 
@@ -921,6 +1030,7 @@ cameraTorchBtn.addEventListener("click", toggleTorch);
 
 async function onShutter() {
   if (camBusy) return;
+  const target = captureDestination(me, currentChatId);
 
   // Sin vista en vivo usamos la app de cámara del sistema.
   if (!camStream || camFailed) {
@@ -946,7 +1056,7 @@ async function onShutter() {
     if (!blob) throw new Error("sin imagen");
     const file = new File([blob], "foto_" + Date.now() + ".jpg", { type: "image/jpeg" });
     closeCameraDock();
-    await sendPhotoFiles([file]);
+    await sendPhotoFiles([file], target);
   } catch (err) {
     console.error(err);
     toast("No se pudo tomar la foto.");
@@ -990,7 +1100,7 @@ document.addEventListener("visibilitychange", () => {
 // --- Envío de la foto (comprimida a base64) ---
 const MAX_LIVE_SLIDES = 4;
 
-async function sendPhotoFiles(files) {
+async function sendPhotoFiles(files, target = captureDestination(me, currentChatId)) {
   if (!me) return;
   const list = Array.from(files || []).filter((f) => f && String(f.type).startsWith("image/"));
   if (!list.length) return toast("Solo se pueden enviar fotos.");
@@ -1007,17 +1117,17 @@ async function sendPhotoFiles(files) {
       const picked = list.slice(0, MAX_LIVE_SLIDES);
       const images = [];
       for (const f of picked) images.push(await compressImage(f, { limit: 200_000 }));
-      sendMessage({ type: "image", images, motion: effect, frame: postal });
+      await sendMessage({ type: "image", images, motion: effect, frame: postal }, target);
     } else {
       for (let i = 0; i < list.length; i++) {
         // En la foto viva el marco se dibuja en pantalla, no dentro de la imagen.
         const image = await compressImage(list[i], { postal: live ? false : postal });
-        if (live) sendMessage({ type: "image", image, motion: effect, frame: postal });
-        else sendMessage({ type: "image", image });
+        if (live) await sendMessage({ type: "image", image, motion: effect, frame: postal }, target);
+        else await sendMessage({ type: "image", image }, target);
         if (i < list.length - 1) await new Promise((r) => setTimeout(r, 250));
       }
     }
-    hideToast();
+    // Cada envío conserva su propio estado y opción de reintento.
   } catch (err) {
     console.error(err);
     toast(list.length > 1 ? "No se pudieron leer esas fotos." : "No se pudo leer esa foto.");
@@ -1028,7 +1138,7 @@ async function handlePhotoInput(e) {
   const inputEl = e.currentTarget;
   const files = Array.from(inputEl.files || []);
   inputEl.value = "";
-  await sendPhotoFiles(files);
+  if (me && files.length) await sendPhotoFiles(files, inputEl._destination || captureDestination(me, currentChatId));
 }
 
 fileInput.addEventListener("change", handlePhotoInput);
@@ -1049,17 +1159,24 @@ async function openAlbum() {
   const chatId = currentChatId;
 
   try {
-    // Sin where para no necesitar índice compuesto: filtramos por chat en el cliente.
-    const q = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(100));
-    const snap = await getDocs(q);
+    // Recorrer todas las páginas del chat para no ocultar fotos antiguas.
     const photos = [];
-    snap.forEach((d) => {
-      const m = d.data({ serverTimestamps: "estimate" });
-      const msgChatId = m.chatId || "papa_hija";
-      if (msgChatId !== chatId) return;
-      const list = m.type === "image" ? imageListOf(m) : [];
-      if (list.length) photos.push({ m, src: list[0], list, count: list.length });
-    });
+    let cursor = null;
+    let more = true;
+    while (more) {
+      const constraints = [where("chatId", "==", chatId), where("type", "==", "image"), orderBy("createdAt", "desc"), limit(50)];
+      if (cursor) constraints.push(startAfter(cursor));
+      const snap = await getDocs(query(collection(db, "messages"), ...constraints));
+      if (chatId !== currentChatId || albumModal.classList.contains("hidden")) return;
+      snap.forEach((d) => {
+        const m = d.data({ serverTimestamps: "estimate" });
+        if (m.chatId !== chatId) return;
+        const list = imageListOf(m);
+        if (list.length) photos.push({ m, src: list[0], list, count: list.length });
+      });
+      cursor = snap.docs.at(-1);
+      more = snap.size === 50;
+    }
 
     albumGrid.replaceChildren();
     if (!photos.length) {
@@ -1213,6 +1330,7 @@ function buildTextartStyles() {
 }
 
 function openTextart() {
+  textartModal._destination = captureDestination(me, currentChatId);
   const typed = input.value.trim();
   textartModal.classList.remove("hidden");
   textartInput.value = typed;
@@ -1227,7 +1345,7 @@ function closeTextart() {
 function sendTextart() {
   const word = textartInput.value.trim();
   if (!word || !me) return;
-  sendMessage({ type: "textart", text: word, style: taStyle });
+  sendMessage({ type: "textart", text: word, style: taStyle }, textartModal._destination);
   input.value = "";
   updateComposerButtons();
   closeTextart();
@@ -1247,12 +1365,11 @@ textartModal.addEventListener("click", (e) => {
   if (e.target === textartModal) closeTextart();
 });
 
-// El botón ✨ aparece cuando hay algo escrito; el micrófono deja su lugar al enviar.
+// El compositor conserva el borrador de cada conversación.
 function updateComposerButtons() {
   const hasText = input.value.trim().length > 0;
-  btnTextart.classList.toggle("hidden", !hasText);
-  micBtn.classList.toggle("hidden", hasText);
-  sendBtn.classList.toggle("hidden", !hasText);
+  sendBtn.disabled = !hasText;
+  if (me && currentChatId) drafts.set(`${me.uid}/${currentChatId}`, input.value);
 }
 input.addEventListener("input", updateComposerButtons);
 
@@ -1267,6 +1384,8 @@ let recChunks = [];
 let recStream = null;
 let recTimer = null;
 let recStartedAt = 0;
+let recDestination = null;
+let requestingMic = false;
 let recCancelled = false;
 let currentAudio = null;
 
@@ -1313,23 +1432,29 @@ function cleanupRecorder() {
     recStream = null;
   }
   micBtn.classList.remove("recording");
-  micBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+  micBtn.innerHTML = '<span>🎙️</span>Nota de voz';
   recBar.classList.add("hidden");
   updateComposerButtons();
 }
 
 async function startRecording() {
-  if (mediaRecorder || !me) return;
+  if (mediaRecorder || requestingMic || !me) return;
+  const target = captureDestination(me, currentChatId);
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
     return toast("Este navegador no permite grabar audio.");
   }
 
   try {
+    requestingMic = true;
     recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
     console.error(err);
     return toast("Falta el permiso de micrófono.");
+  } finally {
+    requestingMic = false;
   }
+  if (me?.uid !== target.uid) { cleanupRecorder(); return; }
+  recDestination = target;
 
   const mime = pickAudioMime();
   try {
@@ -1357,7 +1482,7 @@ async function startRecording() {
   }
 
   micBtn.classList.add("recording");
-  micBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+  micBtn.innerHTML = '<span>⏹️</span>Detener grabación';
   recBar.classList.remove("hidden");
   recTime.textContent = "0:00";
   clearInterval(recTimer);
@@ -1380,6 +1505,7 @@ async function onRecorderStop() {
   const chunks = recChunks.slice();
   const cancelled = recCancelled;
   const duration = Math.round((Date.now() - recStartedAt) / 1000);
+  const target = recDestination;
   cleanupRecorder();
 
   if (cancelled || !chunks.length) return;
@@ -1389,7 +1515,7 @@ async function onRecorderStop() {
   try {
     const audio = await blobToDataURL(blob);
     if (audio.length > 850_000) return toast("La nota es muy larga. Prueba con una más corta.");
-    sendMessage({ type: "audio", audio, duration });
+    await sendMessage({ type: "audio", audio, duration }, target);
   } catch (err) {
     console.error(err);
     toast("No se pudo preparar la nota de voz.");
@@ -1495,10 +1621,125 @@ function buildAudioPlayer(src, duration) {
 
 micBtn.addEventListener("click", () => {
   if (mediaRecorder) stopRecording(true);
-  else startRecording();
+  else {
+    if (isDictating) stopDictation();
+    startRecording();
+  }
 });
 recCancel.addEventListener("click", () => stopRecording(false));
 recSend.addEventListener("click", () => stopRecording(true));
+
+// ---------- Dictado por voz (Speech-to-Text) ----------
+let recognition = null;
+let isDictating = false;
+let dictationBaseText = "";
+
+function getRecognition() {
+  if (!("SpeechRecognition" in window) && !("webkitSpeechRecognition" in window)) {
+    return null;
+  }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SpeechRecognition();
+  rec.lang = "es-ES";
+  rec.interimResults = true;
+  rec.continuous = true;
+  return rec;
+}
+
+function startDictation() {
+  if (isDictating || !me) return;
+  // Detener grabación de voz si está activa
+  if (mediaRecorder) stopRecording(false);
+  
+  const rec = getRecognition();
+  if (!rec) {
+    toast("Tu navegador no soporta dictado por voz.");
+    return;
+  }
+  recognition = rec;
+
+  // Guardar el texto base antes de empezar a dictar
+  dictationBaseText = input.value;
+
+  recognition.onstart = () => {
+    isDictating = true;
+    dictateBtn.classList.add("dictating");
+    dictateBtn.innerHTML = '<span>⏹️</span>Detener dictado';
+    closeTools();
+    input.focus();
+    toast("🎤 Escuchando... Habla ahora");
+  };
+
+  recognition.onresult = (event) => {
+    let interimTranscript = "";
+    let finalTranscript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript + " ";
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    // Construir el texto: base + final + interim
+    let newText = dictationBaseText;
+    if (finalTranscript) {
+      newText += (newText ? " " : "") + finalTranscript;
+      // Actualizar la base para que los siguientes resultados se añadan correctamente
+      dictationBaseText = newText.trim();
+    }
+    if (interimTranscript) {
+      newText += (newText ? " " : "") + interimTranscript;
+    }
+    input.value = newText.trim();
+    updateComposerButtons();
+  };
+
+  recognition.onerror = (event) => {
+    console.error("Speech recognition error:", event.error);
+    if (event.error !== "no-speech" && event.error !== "aborted") {
+      toast("Error en el dictado: " + event.error);
+    }
+    stopDictation();
+  };
+
+  recognition.onend = () => {
+    stopDictation();
+  };
+
+  try {
+    recognition.start();
+  } catch (err) {
+    console.error("Error starting recognition:", err);
+    toast("No se pudo iniciar el dictado");
+  }
+}
+
+function stopDictation() {
+  if (!isDictating) return;
+  isDictating = false;
+  if (recognition) {
+    try { recognition.stop(); } catch {}
+    recognition = null;
+  }
+  dictateBtn.classList.remove("dictating");
+  dictateBtn.innerHTML = '<span>🗣️</span>Dictado';
+  dictationBaseText = "";
+}
+
+dictateBtn.addEventListener("click", () => {
+  if (isDictating) stopDictation();
+  else startDictation();
+});
+
+// Detener dictado si se cierra el panel de herramientas o se cambia de chat
+const originalCloseTools = closeTools;
+closeTools = function(restoreFocus = false) {
+  if (isDictating) stopDictation();
+  return originalCloseTools(restoreFocus);
+};
 
 async function compressImage(file, { postal = false, limit: LIMIT = 700_000 } = {}) {
   const img = await loadImage(file);
@@ -1608,18 +1849,21 @@ initGames({
   db,
   me: () => me,
   partner: () => partner,
+  destination: () => captureDestination(me, currentChatId),
   toast,
   notify,
-  sendInvite: (game, gameId) => sendMessage({ type: "game", game, gameId })
+  sendInvite: (game, gameId, target) => sendMessage({ type: "game", game, gameId }, target)
 });
 // Botón 🎁 — abre la galería de tarjetas animadas
 if (btnSendCard) {
   btnSendCard.addEventListener("click", () => {
+    const target = captureDestination(me, currentChatId);
     openCardGallery({
-      onSend: (cardData) => {
-        sendMessage({ type: "msncard", card: cardData });
-        playMsnCard(cardData);
-        toast("¡Presentación enviada! 🎁");
+      onSend: async (cardData) => {
+        if (await sendMessage({ type: "msncard", card: cardData }, target)) {
+          playMsnCard(cardData);
+          toast("¡Presentación enviada! 🎁");
+        }
       }
     });
   });
@@ -1631,6 +1875,7 @@ if (cardFileInput) {
     const file = cardFileInput.files[0];
     cardFileInput.value = "";
     if (!file || !me) return;
+    const target = captureDestination(me, currentChatId);
 
     if (file.size > 950_000) {
       toast("El archivo supera el límite de Firebase (~950 KB). Reduce la duración o resolución.");
@@ -1646,9 +1891,10 @@ if (cardFileInput) {
         return;
       }
 
-      toast("¡Presentación enviada! 🎁");
-      sendMessage({ type: "msncard", card: cardData });
-      playMsnCard(cardData);
+      if (await sendMessage({ type: "msncard", card: cardData }, target)) {
+        toast("¡Presentación enviada! 🎁");
+        playMsnCard(cardData);
+      }
     } catch (err) {
       console.error(err);
       toast("No se pudo leer el archivo. Asegúrate que sea un .msncard o JSON válido.");
@@ -2001,14 +2247,16 @@ function react(emoji) {
 // ---------- Leído ----------
 function markRead() {
   if (!me || document.visibilityState !== "visible") return;
-  const unread = lastDocs.filter((d) => {
-    const x = d.data();
-    return x.senderUid !== me.uid && !x.read;
-  });
-  if (!unread.length) return;
+  const unread = unreadInChat(lastDocs, me.uid, currentChatId).slice(0, 450);
+  const chatId = currentChatId;
+  const acknowledge = () => {
+    if (currentChatId !== chatId || document.visibilityState !== "visible") return;
+    try { window.MensajeroNative?.messagesRead?.(chatId); } catch {}
+  };
+  if (!unread.length) { acknowledge(); return; }
   const batch = writeBatch(db);
   unread.forEach((d) => batch.update(d.ref, { read: true }));
-  batch.commit().catch((e) => console.error(e));
+  batch.commit().then(acknowledge).catch((e) => console.error(e));
 }
 
 // ---------- Mi perfil (nombre + avatar) ----------
@@ -2093,20 +2341,8 @@ function subscribeStatus() {
   unsubStatus = onSnapshot(collection(db, "status"), (snap) => {
     const mine = snap.docs.find((d) => d.id === me.uid)?.data();
     
-    // Buscar el estado del partner actual:
-    // 1) Por coincidencia de email (si ya guardó con email)
-    // 2) O por exclusión: si solo hay dos estados (el mío y otro más antiguo que aún no tenía el campo email)
-    let other = snap.docs.find((d) => d.data().email === partner.email);
-    if (!other) {
-      const candidates = snap.docs.filter((d) => d.id !== me.uid);
-      // Si solo hay un candidato distinto a mí, es el partner
-      if (candidates.length === 1) {
-        other = candidates[0];
-      } else {
-        // Si hay varios candidatos sin email, tomamos el que no tenga email asignado a otra cuenta
-        other = candidates.find((d) => !d.data().email || d.data().email === partner.email);
-      }
-    }
+    // Con tres cuentas, inferir por exclusión puede mostrar a la persona equivocada.
+    const other = snap.docs.find((d) => d.data().email === partner.email);
     partnerStatus = other ? other.data({ serverTimestamps: "estimate" }) : null;
 
     if (mine?.avatar && mine.avatar !== me.avatar) { me.avatar = mine.avatar; cacheAvatar(me.email, mine.avatar); }
@@ -2186,8 +2422,8 @@ function renderBell() {
   const s = notifState();
   bellBtn.classList.toggle("hidden", s === "unsupported");
   bellBtn.innerHTML = s === "granted"
-    ? '<i class="fa-solid fa-bell"></i>'
-    : '<i class="fa-solid fa-bell-slash"></i>';
+    ? '<i class="fa-solid fa-bell" aria-hidden="true"></i> Desactivar avisos'
+    : '<i class="fa-solid fa-bell-slash" aria-hidden="true"></i> Activar avisos';
   bellBtn.title = s === "granted" ? "Notificaciones activadas" : "Activar notificaciones";
 }
 bellBtn.addEventListener("click", async () => {
