@@ -389,6 +389,17 @@
   transform: scale(1.06);
 }
 
+/* Preview de movimiento en álbum para fotos vivas */
+.album-item.has-motion:hover img {
+  animation: live-breathe 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-item.has-motion:hover img {
+    animation: none;
+  }
+}
+
 .album-item-date {
   position: absolute;
   left: 0;
@@ -437,6 +448,31 @@
 /* El visor debe quedar por encima del álbum y de los modales */
 .lightbox-modal {
   z-index: 900;
+}
+
+/* Contenedor live-photo en el lightbox */
+.lightbox-container {
+  width: 100%;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-container .live-photo {
+  width: auto;
+  max-width: 100%;
+  max-height: 80vh;
+}
+
+.lightbox-container .live-window {
+  border-radius: 8px;
+  max-height: 80vh;
+}
+
+.lightbox-container .live-img {
+  object-fit: contain;
 }
 
 .postal-toggle {

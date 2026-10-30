@@ -74,6 +74,7 @@ const fileInput = $("file-input");
 const cameraInput = $("camera-input");
 const photoModal = $("photo-source-modal");
 const lightbox = $("lightbox-modal");
+const lightboxContainer = $("lightbox-container");
 const lightboxImg = $("lightbox-img");
 const lightboxDownload = $("lightbox-download");
 const toastEl = $("toast");
@@ -1199,10 +1200,11 @@ async function openAlbum() {
 
     albumMeta.textContent = `${photos.length} ${photos.length === 1 ? "foto" : "fotos"}`;
     for (const { m, src, list, count } of photos) {
+      const isLive = !!m.motion;
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "album-item";
-      b.title = count > 1 ? `Ver foto (${count} en la postal viva)` : "Ver foto";
+      b.className = "album-item" + (isLive ? " has-motion" : "");
+      b.title = count > 1 ? `Ver foto (${count} en la postal viva)` : isLive ? "Ver foto con movimiento" : "Ver foto";
 
       const img = document.createElement("img");
       img.src = src;
@@ -1223,9 +1225,15 @@ async function openAlbum() {
         badge.className = "album-item-live";
         badge.textContent = `✨ ${count}`;
         b.appendChild(badge);
+      } else if (isLive) {
+        // Badge para foto viva individual
+        const badge = document.createElement("span");
+        badge.className = "album-item-live";
+        badge.textContent = m.motion === "fade" ? "✨ Fade" : "🎞️ Pan";
+        b.appendChild(badge);
       }
 
-      b.addEventListener("click", () => openLightbox(src, list));
+      b.addEventListener("click", () => openLightbox(m, src, list));
       albumGrid.appendChild(b);
     }
   } catch (err) {
@@ -1952,6 +1960,11 @@ function startLiveSlideshow() {
       const next = (Number(box.dataset.index || 0) + 1) % imgs.length;
       box.dataset.index = String(next);
       imgs.forEach((im, i) => im.classList.toggle("on", i === next));
+      // Si es el lightbox, actualizar el enlace de descarga
+      if (box.closest("#lightbox-container")) {
+        lightboxDownload.href = lightboxList[next];
+        lightboxIndex = next;
+      }
     });
   }, LIVE_SLIDE_MS);
 }
@@ -2000,7 +2013,7 @@ function buildLivePhoto(m, list, bubble) {
 
   box.addEventListener("click", () => {
     if (bubble && bubble._longPressed) return;
-    openLightbox(list[0], list);
+    openLightbox(m, list[0], list);
   });
 
   return box;
@@ -2025,7 +2038,7 @@ function buildBubble(id, m, pending) {
     img.alt = "Foto";
     img.decoding = "async";
     img.addEventListener("load", () => { if (isNearBottom(400)) scrollToBottom(); });
-    wrap.addEventListener("click", () => { if (!el._longPressed) openLightbox(photos[0]); });
+    wrap.addEventListener("click", () => { if (!el._longPressed) openLightbox(m, photos[0], photos); });
     wrap.appendChild(img);
     el.appendChild(wrap);
   } else if (m.type === "audio" && typeof m.audio === "string" && m.audio.startsWith("data:audio/")) {
@@ -2395,28 +2408,98 @@ window.addEventListener("online", updateNet);
 window.addEventListener("offline", updateNet);
 updateNet();
 
-// ---------- Visor de fotos ----------
+// ---------- Visor de fotos (con efectos live: paneo/fade) ----------
 let lightboxList = [];
 let lightboxIndex = 0;
+let lightboxCurrentMotion = "pan"; // para navegación con teclado
 
-function openLightbox(src, list) {
-  lightboxList = Array.isArray(list) && list.length ? list : [src];
-  lightboxIndex = Math.max(0, lightboxList.indexOf(src));
-  lightboxImg.src = lightboxList[lightboxIndex];
-  lightboxDownload.href = lightboxImg.src;
+function openLightbox(m, src, list) {
+  // m = mensaje completo (con motion, frame, createdAt)
+  // src = imagen principal a mostrar
+  // list = array de todas las imágenes (para slideshow)
+
+  const photos = Array.isArray(list) && list.length ? list : (src ? [src] : []);
+  if (!photos.length) return;
+
+  lightboxList = photos;
+  lightboxIndex = Math.max(0, photos.indexOf(src));
+  lightboxDownload.href = photos[lightboxIndex];
+
+  // Determinar efecto de movimiento
+  const motion = (m && m.motion === "fade") ? "fade" : "pan";
+  const framed = !!(m && m.frame);
+  lightboxCurrentMotion = motion;
+
+  // Limpiar contenedor y crear live-photo
+  lightboxContainer.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "live-photo" + (framed ? " framed" : "") + (photos.length > 1 ? " slideshow" : "");
+  box.dataset.motion = motion;
+  box.dataset.index = String(lightboxIndex);
+
+  // Alternar dirección del paneo para variar
+  if (Math.random() > 0.5) box.classList.add("rev");
+
+  const win = document.createElement("div");
+  win.className = "live-window";
+
+  photos.forEach((pSrc, i) => {
+    const img = document.createElement("img");
+    img.src = pSrc;
+    img.alt = "Foto";
+    img.decoding = "async";
+    img.className = "live-img" + (i === lightboxIndex ? " on" : "");
+    win.appendChild(img);
+  });
+
+  box.appendChild(win);
+
+  if (framed && m?.createdAt?.toDate) {
+    const date = document.createElement("div");
+    date.className = "live-date";
+    date.textContent = postalStamp(m.createdAt);
+    box.appendChild(date);
+  }
+
+  lightboxContainer.appendChild(box);
   lightbox.classList.remove("hidden");
+
+  // Para slideshow: habilitar click en la imagen para pasar a la siguiente
+  if (photos.length > 1) {
+    startLiveSlideshow();
+    // El slideshow automático ya funciona via startLiveSlideshow()
+    // Pero también permitimos navegación manual click/tap
+    box.addEventListener("click", (e) => {
+      if (e.target.closest(".live-date")) return;
+      lightboxIndex = (lightboxIndex + 1) % photos.length;
+      box.dataset.index = String(lightboxIndex);
+      lightboxDownload.href = photos[lightboxIndex];
+      win.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
+    });
+  }
 }
 
-// Si la postal trae varias fotos, tocando la imagen se pasa a la siguiente.
-lightboxImg.addEventListener("click", (e) => {
-  if (lightboxList.length < 2) return;
-  e.stopPropagation();
-  lightboxIndex = (lightboxIndex + 1) % lightboxList.length;
-  lightboxImg.src = lightboxList[lightboxIndex];
-  lightboxDownload.href = lightboxImg.src;
-});
+// Cerrar lightbox
 $("lightbox-close").addEventListener("click", () => lightbox.classList.add("hidden"));
 lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.add("hidden"); });
+
+// Navegación con teclado (flechas)
+document.addEventListener("keydown", (e) => {
+  if (lightbox.classList.contains("hidden")) return;
+  if (e.key === "Escape") { lightbox.classList.add("hidden"); return; }
+  if (lightboxList.length < 2) return;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+    lightboxIndex = (lightboxIndex + 1) % lightboxList.length;
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    lightboxIndex = (lightboxIndex - 1 + lightboxList.length) % lightboxList.length;
+  } else return;
+  const box = lightboxContainer.querySelector(".live-photo");
+  if (box) {
+    box.dataset.index = String(lightboxIndex);
+    lightboxDownload.href = lightboxList[lightboxIndex];
+    box.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
+  }
+});
 
 // ---------- Utilidades ----------
 function isNearBottom(px = 120) {
