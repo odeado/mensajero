@@ -1,0 +1,35 @@
+:root { --composer-radius: 24px; --tool-accent: #64e3bc; }
+.header-user-info { flex: 1; min-width: 0; }
+.header-user-info .current-avatar { flex-shrink: 0; }
+.user-details { min-width: 0; }
+.user-details h3, #status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-details .status-badge { display: flex; align-items: center; }
+.status-dot { flex-shrink: 0; }
+.chat-input-bar { gap: 10px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+.chat-input-bar .input-wrapper { min-width: 0; border: 1px solid #ffffff12; border-radius: var(--composer-radius); padding: 0 16px; }
+.chat-input-bar .input-wrapper:focus-within { border-color: var(--tool-accent); box-shadow: 0 0 0 3px #64e3bc12; }
+.chat-input-bar .input-wrapper input { min-width: 0; font-size: 16px; padding: 13px 0; }
+.chat-input-bar > .icon-btn { flex: 0 0 46px; width: 46px; height: 46px; }
+.tools-toggle { background: #64e3bc14; color: var(--tool-accent); border: 1px solid #64e3bc38; border-radius: 16px; font-size: 30px; }
+.tools-toggle span { display: block; transition: transform .18s ease; }
+.tools-toggle[aria-expanded="true"] span { transform: rotate(45deg); }
+.send-btn:disabled { opacity: .4; cursor: default; }
+.tools-panel { background: var(--header-bg); padding: 20px; border-top: 1px solid #ffffff12; border-radius: 24px 24px 0 0; flex-shrink: 0; max-height: min(58dvh, 430px); overflow-y: auto; }
+.tools-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; }
+.tools-heading strong { display: block; font-size: 16px; color: var(--text-primary); }
+.tools-heading span { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.tools-heading button { background: transparent; border: 0; color: var(--text-secondary); font-size: 28px; width: 44px; height: 44px; cursor: pointer; }
+.tools-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; }
+.tools-grid button { border: 1px solid #ffffff0d; border-radius: 16px; background: #ffffff04; color: var(--text-primary); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; min-height: 86px; font: inherit; font-size: 12px; cursor: pointer; padding: 10px 4px; }
+.tools-grid button > span { font-size: 25px; line-height: 1.2; }
+.tools-grid button:hover { background: #64e3bc14; border-color: #64e3bc55; }
+.tools-secondary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #ffffff12; }
+.tools-secondary button { background: transparent; color: var(--text-secondary); border: none; padding: 8px; min-height: 44px; font: inherit; font-size: 12px; cursor: pointer; }
+.tools-secondary button:last-child { margin-left: auto; }
+.tools-grid button:focus-visible, .tools-toggle:focus-visible, .tools-heading button:focus-visible { outline: 2px solid var(--tool-accent); outline-offset: 3px; }
+.failed-sends { background: #472f2a; color: #ffe0d5; padding: 8px 16px; max-height: 130px; overflow: auto; font-size: 13px; }
+.failed-sends > div { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.failed-sends span { flex: 1; overflow-wrap: anywhere; }
+.failed-sends button { min-height: 44px; background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 12px; padding: 6px 12px; cursor: pointer; }
+@media (max-width: 359px) { .tools-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .chat-input-bar { padding-left: 10px; padding-right: 10px; gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { .tools-toggle span { transition: none; } }

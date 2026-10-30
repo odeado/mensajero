@@ -81,16 +81,25 @@ export function openGamesMenu() { menu.classList.remove("hidden"); }
 
 export async function createGame(type) {
   const me = ctx.me();
+  if (!me || busy) return;
+  const target = ctx.destination();
   const ref = doc(collection(ctx.db, "games"));
-  setDoc(ref, {
-    type,
-    players: [me.uid, null],
-    ...newState(type),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  }).catch((e) => { console.error(e); ctx.toast("No se pudo crear el juego."); });
-  ctx.sendInvite(type, ref.id);
-  openGame(ref.id);
+  busy = true;
+  try {
+    await setDoc(ref, {
+      type,
+      chatId: target.chatId,
+      players: [me.uid, null],
+      ...newState(type),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    const sent = await ctx.sendInvite(type, ref.id, target);
+    if (sent && ctx.me()?.uid === target.uid && ctx.destination().chatId === target.chatId) openGame(ref.id);
+  } catch (e) {
+    console.error(e);
+    ctx.toast("No se pudo crear el juego. Inténtalo nuevamente.");
+  } finally { busy = false; }
 }
 
 export function openGame(id) {

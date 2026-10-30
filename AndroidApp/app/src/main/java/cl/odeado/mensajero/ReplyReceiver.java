@@ -24,6 +24,7 @@ public class ReplyReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         final Context c = context.getApplicationContext();
         final String action = intent.getAction();
+        if (!ACTION_REPLY.equals(action) && !ACTION_READ.equals(action)) return;
         String text = null;
         Bundle results = RemoteInput.getResultsFromIntent(intent);
         if (results != null) {
@@ -31,6 +32,7 @@ public class ReplyReceiver extends BroadcastReceiver {
             if (cs != null) text = cs.toString().trim();
         }
         final String reply = text;
+        if (ACTION_REPLY.equals(action) && (reply == null || reply.isEmpty())) return;
         String chatId = intent.getStringExtra("chatId");
         if (chatId == null || chatId.isEmpty()) chatId = ChatApi.activeChatId(c);
         final String targetChat = chatId;
@@ -47,7 +49,7 @@ public class ReplyReceiver extends BroadcastReceiver {
                     if (o == null) continue;
                     String id = o.optString("chatId", ChatApi.DEFAULT_CHAT);
                     if (!targetChat.equals(id)) continue;
-                    try { ChatApi.markRead(c, o.getString("id")); } catch (Exception ignored) {}
+                    ChatApi.markRead(c, o.getString("id"));
                 }
                 ChatMonitorService.clearPending(c, targetChat);
             } catch (Exception e) {

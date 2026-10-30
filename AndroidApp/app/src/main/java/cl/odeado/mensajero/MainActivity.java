@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         ChatMonitorService.appVisible = true;
-        ChatMonitorService.clearPending(this);
+        ChatMonitorService.visibleChatId = null; // La web confirma qué conversación está mostrando.
         ChatMonitorService.setListener((text, color) -> {
             statusBar.setText(text);
             statusBar.setBackgroundColor(color);
@@ -271,6 +271,7 @@ public class MainActivity extends AppCompatActivity {
             ChatApi.configureChats(MainActivity.this, chatsJson);
             if (activeChatId != null && !activeChatId.isEmpty()) {
                 ChatApi.setActiveChat(MainActivity.this, activeChatId);
+                ChatMonitorService.visibleChatId = activeChatId;
             }
             refreshMonitor();
         }
@@ -278,7 +279,21 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void setActiveChat(String chatId) {
             ChatApi.setActiveChat(MainActivity.this, chatId);
+            ChatMonitorService.visibleChatId = chatId;
             refreshMonitor();
+        }
+
+        @JavascriptInterface
+        public void chatHidden() {
+            ChatMonitorService.visibleChatId = null;
+        }
+
+        @JavascriptInterface
+        public void messagesRead(String chatId) {
+            if (chatId != null && chatId.equals(ChatApi.activeChatId(MainActivity.this))) {
+                ChatMonitorService.visibleChatId = chatId;
+                ChatMonitorService.clearPending(MainActivity.this, chatId);
+            }
         }
     }
 

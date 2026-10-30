@@ -1,26 +1,29 @@
-# 💬 Chat Papá & Hija
+# 💬 Mensajero familiar
 
-Chat privado 1‑a‑1 en tiempo real. Página estática (GitHub Pages) + Firebase (Auth + Firestore).
-Solo las dos cuentas autorizadas pueden entrar, leer o escribir. Fotos comprimidas y guardadas en base64 (sin Storage, sin tarjeta).
+Conversaciones privadas Papá–Hija y Papá–Amor en tiempo real. Página estática (GitHub Pages) + Firebase (Auth + Firestore).
+Papá accede a ambas conversaciones; Hija y Amor solo a la suya. Fotos comprimidas y guardadas en base64 (sin Storage, sin tarjeta).
 
 ## Configuración (una sola vez)
 
 1. **Crear proyecto** en https://console.firebase.google.com (plan gratis Spark).
 2. **Authentication → Método de acceso →** habilitar *Correo electrónico/contraseña*.
-3. **Authentication → Usuarios → Agregar usuario:** crear las 2 cuentas: `papa@chat-familia.local` y `hija@chat-familia.local` (no son correos reales, solo nombres de usuario) con sus claves.
+3. **Authentication → Usuarios → Agregar usuario:** crear las 3 cuentas: `papa@chat-familia.local`, `hija@chat-familia.local` y `amor@chat-familia.local` (no son correos reales, solo nombres de usuario) con sus claves.
 4. **Authentication → Configuración → Acciones del usuario →** desmarcar *Habilitar creación (registro)*. Así nadie más puede crearse cuenta.
 5. **Authentication → Configuración → Dominios autorizados →** agregar `odeado.github.io`.
 6. **Firestore Database → Crear base de datos** (modo producción, región `southamerica-east1` o la más cercana).
-7. **Firestore → Reglas:** pegar el contenido de `firestore.rules` (con los 2 correos) y **Publicar**.
-8. **Configuración del proyecto → Tus apps → Web (</>)** → copiar la config y pegarla en `js/config.js`, junto con los 2 correos.
+7. Publicar las reglas e índices de `firebase.json` y `firestore.indexes.json`. Para un proyecto con historial existente, seguir primero [la guía de actualización](docs/actualizacion.md).
+8. **Configuración del proyecto → Tus apps → Web (</>)** → copiar la config y pegarla en `js/config.js`, junto con los 3 correos.
 9. Subir a GitHub y activar **Settings → Pages → Deploy from branch → main / (root)**.
 
 URL: `https://odeado.github.io/mensajero/`
 
 ## Uso
-- Se toca **Papá** o **Hija**, se escribe la clave y listo; la sesión queda guardada en el teléfono.
+- Escribe **Papá**, **Hija** o **Amor** y la clave; la sesión queda guardada en el teléfono.
+- El botón **+** reúne Fotos, Nota de voz, Emojis, Juegos, Tarjetas, Texto grande y Álbum. La barra deja el resto del espacio para escribir.
+- En ese mismo panel están **Activar/Desactivar avisos** y **Cerrar sesión**.
+- Los envíos rechazados aparecen en su conversación con **Reintentar**. Se guardan en este dispositivo mediante IndexedDB; sin almacenamiento disponible, se conservan durante la sesión. Los pendientes sin conexión siguen a cargo de la caché de Firestore.
 - Si alguien olvida su clave: Consola Firebase → Authentication → Usuarios → ⋮ → Restablecer contraseña (o borrar y crear de nuevo).
-- Para cambiar de usuario: botón ⎋ arriba a la derecha (cerrar sesión).
+- Para cambiar de usuario: **+ → Cerrar sesión**.
 - En el teléfono: menú del navegador → *Agregar a pantalla de inicio* para usarlo como app.
 
 ## Funciones
@@ -29,11 +32,11 @@ URL: `https://odeado.github.io/mensajero/`
 - ❤️ Reacciones: mantener apretado (o doble clic) un mensaje.
 - 🦄 Mi perfil: toca tu nombre arriba a la derecha para cambiar **cómo te llamas** y tu avatar.
   El nombre se sincroniza con la otra persona y con los avisos.
-- 🔍 Buscar mensajes: lupa arriba a la derecha. Busca por palabra, frase o fecha y salta
+- 🔍 Buscar mensajes: lupa arriba a la derecha. Busca por palabra, frase o fecha en los mensajes cargados; **Buscar más atrás** carga más historial del mismo chat. Salta
   al mensaje encontrado con un destello.
 - 🎙️ Notas de voz: toca el micrófono para grabar (hasta 90 segundos), y vuelve a tocarlo
   para enviar. Tienes botones para cancelar o enviar mientras grabas.
-- 🖼️ Álbum del chat: desde el botón de cámara → **Álbum del chat**, o en la cuadrícula
+- 🖼️ Álbum del chat: desde **+ → Álbum**, o desde Fotos → **Álbum del chat**,
   se ven todas las fotos compartidas y se abren a pantalla completa.
 - 📮 Foto con marco y fecha: activa el interruptor en el menú de fotos para enviarla
   estilo postal, con el día y la hora estampados.
@@ -64,6 +67,12 @@ URL: `https://odeado.github.io/mensajero/`
 
 
 ## Seguridad
-- La `apiKey` de Firebase es pública por diseño; la protección real está en `firestore.rules`.
+- La `apiKey` de Firebase es pública por diseño; la protección real está en `firestore.rules`. Las nuevas reglas requieren publicarse para proteger el servicio en producción.
 - Nadie puede crear mensajes a nombre del otro ni borrar mensajes.
 - Los mensajes se muestran con nodos de texto y enlaces creados con el DOM (sin `innerHTML` con datos del usuario), así que no hay riesgo de inyección de código.
+
+## Desarrollo y validación
+
+`npm ci` instala las herramientas de desarrollo. `npm test` prueba el aislamiento de leídos y la captura del destinatario. `npm run test:rules` ejecuta las pruebas de autorización con un emulador local y proyecto `demo-mensajero` (requiere Java 21 en PATH). No utiliza la base real.
+
+Para Android: `Compilar_APK_Mensajero.bat`. El monitor nativo se autentica como Papá; las cuentas Hija y Amor usan la sesión web. Ver [actualización y despliegue](docs/actualizacion.md).

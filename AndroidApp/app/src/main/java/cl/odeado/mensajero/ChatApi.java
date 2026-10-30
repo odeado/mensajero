@@ -224,10 +224,16 @@ public class ChatApi {
                         .put(field("senderUid")).put(field("type")).put(field("text"))
                         .put(field("game")).put(field("createdAt")).put(field("chatId"))))
                 .put("from", new JSONArray().put(new JSONObject().put("collectionId", "messages")))
-                .put("where", new JSONObject().put("fieldFilter", new JSONObject()
+                .put("where", new JSONObject().put("compositeFilter", new JSONObject()
+                        .put("op", "AND").put("filters", new JSONArray()
+                        .put(new JSONObject().put("fieldFilter", new JSONObject()
+                                .put("field", field("chatId")).put("op", "IN")
+                                .put("value", new JSONObject().put("arrayValue", new JSONObject()
+                                        .put("values", chatValues(c))))))
+                        .put(new JSONObject().put("fieldFilter", new JSONObject()
                         .put("field", field("createdAt"))
                         .put("op", "GREATER_THAN")
-                        .put("value", new JSONObject().put("timestampValue", sinceIso))))
+                        .put("value", new JSONObject().put("timestampValue", sinceIso)))))))
                 .put("orderBy", new JSONArray().put(new JSONObject()
                         .put("field", field("createdAt")).put("direction", "ASCENDING")))
                 .put("limit", 100));
@@ -251,6 +257,12 @@ public class ChatApi {
             out.add(m);
         }
         return out;
+    }
+
+    private static JSONArray chatValues(Context c) throws Exception {
+        JSONArray values = new JSONArray();
+        for (ChatInfo ci : chats(c)) values.put(new JSONObject().put("stringValue", ci.id));
+        return values;
     }
 
     /** Estado (en línea / escribiendo / última vez) del partner del chat indicado. */

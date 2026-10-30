@@ -1,5 +1,9 @@
 _version_node_antigua/
 node_modules/
+.npm-cache/
+*-debug.log
+ui-debug.log
+.firebase/
 .env
 .DS_Store
 

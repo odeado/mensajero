@@ -60,6 +60,7 @@ public class ChatMonitorService extends Service {
 
     /** true mientras la app está en pantalla: ahí no hace falta avisar (ya se ve el chat). */
     public static volatile boolean appVisible = false;
+    public static volatile String visibleChatId = null;
 
     public interface Listener { void onUpdate(String text, int color); }
     private static volatile Listener listener;
@@ -198,8 +199,8 @@ public class ChatMonitorService extends Service {
             for (ChatApi.Message m : nuevos) {
                 since = m.createdAt;
                 if (m.senderUid.equals(me)) continue;
-                if (appVisible) continue;           // la está viendo en pantalla
                 String chatId = m.chatId == null || m.chatId.isEmpty() ? ChatApi.DEFAULT_CHAT : m.chatId;
+                if (appVisible && chatId.equals(visibleChatId)) continue;
                 if (ChatApi.chat(this, chatId) == null) continue; // chat que no es de este usuario
                 pend.put(new JSONObject().put("id", m.id).put("text", m.preview())
                         .put("ts", ChatApi.parseTs(m.createdAt)).put("chatId", chatId));

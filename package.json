@@ -1,0 +1,29 @@
+{
+  "name": "msn",
+  "version": "1.0.0",
+  "description": "Mensajero familiar con conversaciones privadas, web estática y Android",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/workflow.test.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-mensajero \"node --test --test-concurrency=1 tests/firestore.test.mjs tests/migration.test.mjs\"",
+    "migrate:chats": "node scripts/migrate-chats.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/odeado/mensajero.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/odeado/mensajero/issues"
+  },
+  "homepage": "https://github.com/odeado/mensajero#readme",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.0",
+    "firebase-tools": "^15.34.2"
+  }
+}
