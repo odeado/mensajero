@@ -7,17 +7,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isFamily() {
-      // TEMPORAL: Permitir cualquier usuario autenticado para debug
-      // Ver el email en la consola del navegador: console.log(request.auth.token.email)
-      return request.auth != null;
-      /* ORIGINAL:
       return request.auth != null
         && request.auth.token.email in [
           'papa@chat-familia.local',
           'hija@chat-familia.local',
           'amor@chat-familia.local'
         ];
-      */
     }
 
     function inChat(chatId) {

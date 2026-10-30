@@ -21,6 +21,14 @@ Las reglas locales y los cambios web no actualizan automáticamente Firebase ni 
 6. Publicar la web actualizada y distribuir el APK actualizado. Los clientes antiguos que consulten toda la colección recibirán un error de permisos con las nuevas reglas. Evitar dejar esos clientes abiertos durante el cambio.
 7. Verificar con las tres cuentas: Hija no lee Amor y viceversa, Papá conserva ambos historiales, los leídos solo afectan el chat abierto, y Android notifica el otro chat.
 
+## Error «The query requires an index»
+
+La consulta de mensajes combina `where('chatId', '==', ...)`, `orderBy('createdAt')` y `limitToLast`. Los índices necesarios ya están en `firestore.indexes.json`, pero guardar ese archivo o publicar la web no los crea en Firebase.
+
+Ejecutar `npm run deploy:indexes` desde la raíz del proyecto con una sesión autorizada de Firebase CLI (`npx firebase login` si hace falta). El comando publica únicamente los índices en `familia-a9fb6`; no modifica reglas ni mensajes. Esperar en Firestore → Índices a que los índices terminen de construirse y figuren como habilitados; después recargar el chat. También se puede usar el enlace «You can create it here» del error para crear el índice concreto que solicita la consulta.
+
+El emulador de Firestore no comprueba la disponibilidad de índices compuestos de producción. Por eso, las pruebas locales de consultas y permisos pueden aprobar aunque falte publicar un índice en el servicio real.
+
 ## Componente de funciones
 
 El compositor usa los colores existentes, controles de 46 px, radio de 24 px y foco visible. El panel tiene una cuadrícula de cuatro columnas (tres en pantallas menores a 360 px), botones con texto y una etiqueta accesible. El botón + anuncia su estado con `aria-expanded`. Durante la grabación siguen disponibles cancelar y enviar en la barra de voz.

@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app, abrir sin señal y mostrar notificaciones.
 // Estrategia "red primero": siempre carga la versión nueva si hay internet.
-const CACHE = "chat-flujo-20261029";
+const CACHE = "chat-indices-20261030";
 
 self.addEventListener("install", () => self.skipWaiting());
 

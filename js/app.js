@@ -517,7 +517,15 @@ function subscribeMessages() {
     }
   }, (err) => {
     console.error(err);
-    toast("No se pudieron cargar los mensajes (revisa las reglas de Firestore).");
+    if (err.code === "failed-precondition" && /index/i.test(err.message || "")) {
+      toast("No se pudo actualizar el historial: falta crear un índice de Firestore o esperar a que esté listo.");
+    } else if (err.code === "permission-denied") {
+      toast("No tienes permiso para consultar este chat. Revisa las reglas de Firestore.");
+    } else if (err.code === "unavailable") {
+      toast("No se pudo conectar con el chat. Revisa tu conexión e inténtalo otra vez.");
+    } else {
+      toast("No se pudieron cargar los mensajes. Revisa el detalle del error en la consola.");
+    }
   });
 }
 
