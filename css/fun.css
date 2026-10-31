@@ -438,7 +438,7 @@
 
 /* Pictionary */
 .g-pictionary { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.pictionary-container { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 420px; }
+.pictionary-container { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 420px; }
 .pictionary-canvas-wrap {
   width: 100%;
   aspect-ratio: 1;
@@ -447,9 +447,18 @@
   box-shadow: 0 4px 16px rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
   position: relative;
+  touch-action: none;
 }
-.pictionary-canvas { display: block; touch-action: none; }
-.pictionary-toolbar { display: flex; justify-content: center; gap: 8px; width: 100%; }
+.pictionary-canvas { display: block; touch-action: none; width: 100%; height: 100%; }
+.pictionary-ui-box { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.pictionary-toolbar { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; width: 100%; }
+.pictionary-colors { display: flex; gap: 6px; align-items: center; }
+.p-color-btn { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,.2); cursor: pointer; transition: transform .12s, border-color .12s; }
+.p-color-btn:hover { transform: scale(1.1); }
+.p-color-btn.selected { border-color: #fff; transform: scale(1.18); box-shadow: 0 0 8px rgba(255,255,255,.5); }
+.pictionary-sizes { display: flex; gap: 6px; align-items: center; }
+.p-size-btn { background: var(--input-bg); border: 1px solid rgba(255,255,255,.1); color: var(--text-primary); padding: 5px 10px; border-radius: 14px; font-size: 12px; cursor: pointer; }
+.p-size-btn.selected { border-color: var(--accent-green); color: var(--accent-green); font-weight: bold; }
 .pictionary-guess-area { display: flex; gap: 8px; width: 100%; max-width: 420px; }
 .pictionary-input {
   flex: 1;

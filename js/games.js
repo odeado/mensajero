@@ -21,7 +21,9 @@ const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks"
 let jPick = null;        // jenga: { level, pos, center, width }
 let jAnim = null;        // requestAnimationFrame id
 let jLastAnimated = "";  // para no repetir la animación del bloque puesto
-let pLastStrokesLen = 0; // pictionary: track new strokes for animation
+let pColor = "#000000";  // pictionary: color seleccionado
+let pWidth = 4;          // pictionary: grosor seleccionado
+let pDrawing = false;    // pictionary: si está dibujando activamente
 
 // ---------- DOM (usando modal unificado glassmorphism) ----------
 const menu = el("div", "modal-unified hidden");
@@ -272,8 +274,10 @@ function render() {
 
   $m(".g-extra").textContent = "";
   const board = $m(".g-board");
-  board.innerHTML = "";
-  board.className = `g-board g-${type}`;
+  if (type !== "pictionary" || !board.querySelector(".pictionary-container")) {
+    board.innerHTML = "";
+    board.className = `g-board g-${type}`;
+  }
   ({ gato: renderGato, cuatro: renderCuatro, damas: renderDamas, cachipun: renderCachipun, jenga: renderJenga, pictionary: renderPictionary })[type](board, pi);
 
   // Pie
@@ -491,133 +495,198 @@ function renderJenga(board, pi) {
 }
 
 // ---------------- PICTIONARY ----------------
+function drawSingleStroke(ctx, stroke) {
+  const pts = stroke.points;
+  if (!pts || pts.length === 0) return;
+  ctx.strokeStyle = stroke.color || "#000000";
+  ctx.lineWidth = stroke.width || 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (pts.length === 1) {
+    ctx.beginPath();
+    ctx.arc(pts[0].x, pts[0].y, (stroke.width || 4) / 2, 0, Math.PI * 2);
+    ctx.fillStyle = stroke.color || "#000000";
+    ctx.fill();
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const midX = (pts[i].x + pts[i + 1].x) / 2;
+    const midY = (pts[i].y + pts[i + 1].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+  }
+  ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+  ctx.stroke();
+}
+
+function redrawAllStrokes(ctx, w, h, strokes, activeStroke = null) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+
+  strokes.forEach((stroke) => drawSingleStroke(ctx, stroke));
+  if (activeStroke) drawSingleStroke(ctx, activeStroke);
+}
+
 function renderPictionary(board, pi) {
   const amDrawer = game.drawer === pi;
   const canDraw = amDrawer && game.phase === "drawing";
   const canGuess = !amDrawer && (game.phase === "drawing" || game.phase === "guessed");
   const roundEnd = game.phase === "roundEnd" || game.phase === "gameOver";
 
-  const container = el("div", "pictionary-container");
+  let container = board.querySelector(".pictionary-container");
+  let canvas, ctx2d, width, height;
 
-  // Canvas area
-  const canvasWrap = el("div", "pictionary-canvas-wrap");
-  const canvas = el("canvas", "pictionary-canvas");
-  canvasWrap.appendChild(canvas);
-  container.appendChild(canvasWrap);
+  if (!container) {
+    board.innerHTML = "";
+    board.className = "g-board g-pictionary";
+    container = el("div", "pictionary-container");
 
-  // Setup canvas
-  const ctx2d = canvas.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvasWrap.getBoundingClientRect();
-  const width = Math.max(300, rect.width || 340);
-  const height = Math.max(300, rect.height || 340);
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-  ctx2d.scale(dpr, dpr);
-  ctx2d.lineCap = "round";
-  ctx2d.lineJoin = "round";
+    const canvasWrap = el("div", "pictionary-canvas-wrap");
+    canvas = el("canvas", "pictionary-canvas");
+    canvasWrap.appendChild(canvas);
+    container.appendChild(canvasWrap);
 
-  // Draw existing strokes
-  function drawStrokes(strokes) {
-    ctx2d.clearRect(0, 0, width, height);
-    // White background
-    ctx2d.fillStyle = "#fff";
-    ctx2d.fillRect(0, 0, width, height);
+    const uiBox = el("div", "pictionary-ui-box");
+    container.appendChild(uiBox);
+    board.appendChild(container);
 
-    strokes.forEach((stroke) => {
-      if (!stroke.points || stroke.points.length < 2) return;
-      ctx2d.strokeStyle = stroke.color || "#000";
-      ctx2d.lineWidth = stroke.width || 3;
-      ctx2d.beginPath();
-      ctx2d.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx2d.lineTo(stroke.points[i].x, stroke.points[i].y);
-      }
-      ctx2d.stroke();
-    });
-  }
+    const rect = canvasWrap.getBoundingClientRect();
+    width = Math.max(280, rect.width || 320);
+    height = Math.max(280, rect.height || 320);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
 
-  drawStrokes(game.strokes || []);
+    ctx2d = canvas.getContext("2d");
+    ctx2d.scale(dpr, dpr);
 
-  // Animate new strokes
-  if ((game.strokes || []).length > pLastStrokesLen) {
-    // New stroke added - could add a subtle animation here
-    pLastStrokesLen = (game.strokes || []).length;
-  }
+    canvas._ctx2d = ctx2d;
+    canvas._w = width;
+    canvas._h = height;
+    canvas._round = game.round;
 
-  // Drawing interaction (only for drawer)
-  if (canDraw) {
-    let drawing = false;
     let currentStroke = null;
 
     function getPos(e) {
       const r = canvasWrap.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       return {
-        x: (clientX - r.left) * (width / r.width),
-        y: (clientY - r.top) * (height / r.height)
+        x: (e.clientX - r.left) * (width / r.width),
+        y: (e.clientY - r.top) * (height / r.height)
       };
     }
 
-    function startDraw(e) {
+    canvas.addEventListener("pointerdown", (e) => {
+      if (!canvas._canDraw) return;
       e.preventDefault();
-      drawing = true;
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      pDrawing = true;
       const pos = getPos(e);
-      currentStroke = { points: [pos], color: "#000", width: 3 };
-    }
+      currentStroke = { points: [pos], color: pColor, width: pWidth };
+      redrawAllStrokes(ctx2d, width, height, game.strokes || [], currentStroke);
+    });
 
-    function draw(e) {
-      if (!drawing) return;
+    canvas.addEventListener("pointermove", (e) => {
+      if (!pDrawing || !currentStroke) return;
       e.preventDefault();
       const pos = getPos(e);
-      currentStroke.points.push(pos);
-      // Draw in real-time locally
-      ctx2d.strokeStyle = currentStroke.color;
-      ctx2d.lineWidth = currentStroke.width;
-      ctx2d.lineCap = "round";
-      ctx2d.lineJoin = "round";
       const pts = currentStroke.points;
-      ctx2d.beginPath();
-      ctx2d.moveTo(pts[pts.length - 2].x, pts[pts.length - 2].y);
-      ctx2d.lineTo(pos.x, pos.y);
-      ctx2d.stroke();
-    }
+      const last = pts[pts.length - 1];
+      const dist = Math.hypot(pos.x - last.x, pos.y - last.y);
+      if (dist < 2.5) return;
 
-    function endDraw() {
-      if (!drawing || !currentStroke || currentStroke.points.length < 2) {
-        drawing = false;
-        return;
-      }
-      drawing = false;
-      // Send stroke to Firestore
-      play({ type: "stroke", stroke: currentStroke });
+      pts.push(pos);
+      redrawAllStrokes(ctx2d, width, height, game.strokes || [], currentStroke);
+    });
+
+    const endPointer = (e) => {
+      if (!pDrawing || !currentStroke) return;
+      pDrawing = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      const st = currentStroke;
       currentStroke = null;
+      if (st.points.length >= 1) {
+        play({ type: "stroke", stroke: st });
+      }
+    };
+
+    canvas.addEventListener("pointerup", endPointer);
+    canvas.addEventListener("pointercancel", endPointer);
+  } else {
+    canvas = container.querySelector(".pictionary-canvas");
+    ctx2d = canvas._ctx2d;
+    width = canvas._w;
+    height = canvas._h;
+
+    if (canvas._round !== game.round) {
+      canvas._round = game.round;
+      pDrawing = false;
     }
+  }
 
-    canvasWrap.addEventListener("mousedown", startDraw);
-    canvasWrap.addEventListener("mousemove", draw);
-    canvasWrap.addEventListener("mouseup", endDraw);
-    canvasWrap.addEventListener("mouseleave", endDraw);
-    canvasWrap.addEventListener("touchstart", startDraw, { passive: false });
-    canvasWrap.addEventListener("touchmove", draw, { passive: false });
-    canvasWrap.addEventListener("touchend", endDraw);
+  canvas._canDraw = canDraw;
+  canvas.style.cursor = canDraw ? "crosshair" : "default";
 
-    // Toolbar for drawer
+  if (!pDrawing) {
+    redrawAllStrokes(ctx2d, width, height, game.strokes || []);
+  }
+
+  const uiBox = container.querySelector(".pictionary-ui-box");
+  uiBox.innerHTML = "";
+
+  if (canDraw) {
     const toolbar = el("div", "pictionary-toolbar");
-    const clearBtn = el("button", "g-btn");
+    const colorsDiv = el("div", "pictionary-colors");
+    const PALETTE = [
+      { name: "Negro", hex: "#000000" },
+      { name: "Rojo", hex: "#e0282e" },
+      { name: "Azul", hex: "#1e4fa3" },
+      { name: "Verde", hex: "#1fbf7a" },
+      { name: "Amarillo", hex: "#f2c200" },
+      { name: "Goma", hex: "#ffffff" }
+    ];
+
+    PALETTE.forEach((c) => {
+      const btn = el("button", "p-color-btn" + (pColor === c.hex ? " selected" : ""));
+      btn.type = "button";
+      btn.style.backgroundColor = c.hex;
+      btn.title = c.name;
+      btn.addEventListener("click", () => {
+        pColor = c.hex;
+        render();
+      });
+      colorsDiv.appendChild(btn);
+    });
+
+    const sizesDiv = el("div", "pictionary-sizes");
+    [
+      { label: "✏️ Fino", val: 3 },
+      { label: "🖌️ Grueso", val: 9 }
+    ].forEach((s) => {
+      const btn = el("button", "p-size-btn" + (pWidth === s.val ? " selected" : ""));
+      btn.type = "button";
+      btn.textContent = s.label;
+      btn.addEventListener("click", () => {
+        pWidth = s.val;
+        render();
+      });
+      sizesDiv.appendChild(btn);
+    });
+
+    const clearBtn = el("button", "g-btn ghost small");
     clearBtn.type = "button";
     clearBtn.textContent = "🗑️ Limpiar";
     clearBtn.addEventListener("click", () => play({ type: "clear" }));
-    toolbar.appendChild(clearBtn);
-    container.appendChild(toolbar);
-  } else {
-    canvasWrap.style.cursor = "default";
+
+    toolbar.append(colorsDiv, sizesDiv, clearBtn);
+    uiBox.appendChild(toolbar);
   }
 
-  // Guess input area (for guesser)
   if (canGuess && !roundEnd) {
     const guessArea = el("div", "pictionary-guess-area");
     const input = el("input", "pictionary-input");
@@ -646,10 +715,9 @@ function renderPictionary(board, pi) {
     });
 
     guessArea.append(input, sendBtn);
-    container.appendChild(guessArea);
+    uiBox.appendChild(guessArea);
   }
 
-  // Show guesses history
   if ((game.guesses || []).length > 0) {
     const history = el("div", "pictionary-history");
     game.guesses.forEach((g) => {
@@ -658,17 +726,15 @@ function renderPictionary(board, pi) {
       item.textContent = `${name}: ${g.text}`;
       history.appendChild(item);
     });
-    container.appendChild(history);
+    uiBox.appendChild(history);
   }
 
-  // Word reveal for drawer (when not drawing phase)
   if (amDrawer && !canDraw && !roundEnd) {
     const reveal = el("div", "pictionary-reveal");
     reveal.textContent = `La palabra era: "${game.word}"`;
-    container.appendChild(reveal);
+    uiBox.appendChild(reveal);
   }
 
-  // Round end / next round button
   if (roundEnd && !game.winner) {
     const nextBtn = el("button", "g-btn");
     nextBtn.type = "button";
@@ -677,8 +743,6 @@ function renderPictionary(board, pi) {
     if (amDrawer) {
       nextBtn.addEventListener("click", () => play({ type: "nextRound" }));
     }
-    container.appendChild(nextBtn);
+    uiBox.appendChild(nextBtn);
   }
-
-  board.appendChild(container);
 }
