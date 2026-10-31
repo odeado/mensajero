@@ -38,29 +38,43 @@ function randomWord() {
 
 const setAt = (s, i, ch) => s.slice(0, i) + ch + s.slice(i + 1);
 
-// Palabras para Pictionary (español, variadas)
+// Palabras para Pictionary (español) — mayoría animales y objetos fáciles de dibujar
 export const PICTIONARY_WORDS = [
-  "gato", "perro", "casa", "árbol", "sol", "luna", "estrella", "coche",
-  "avión", "barco", "tren", "bicicleta", "manzana", "plátano", "helado",
-  "pizza", "hamburguesa", "flor", "mariposa", "pájaro", "pez", "rana",
-  "elefante", "jirafa", "león", "tigre", "oso", "conejo", "ratón",
-  "zapato", "sombrero", "gafas", "reloj", "teléfono", "ordenador", "libro",
-  "lapiz", "pincel", "piano", "guitarra", "tambor", "cama", "silla",
-  "mesa", "puerta", "ventana", "techo", "suelo", "pared", "espejo",
-  "cepillo", "peine", "toalla", "jabón", "plato", "vaso", "tenedor",
-  "cuchara", "cuchillo", "olla", "sartén", "horno", "nevera", "microondas",
-  "paraguas", "bufanda", "guantes", "chaqueta", "pantalón", "camisa",
-  "calcetines", "camiseta", "vestido", "falda", "botas", "sandalias",
-  "playa", "montaña", "río", "lago", "bosque", "desierto", "isla",
-  "puente", "castillo", "torre", "muralla", "puerta", "llave", "cofre",
-  "mapa", "brújula", "tienda", "fuego", "leña", "marshmallow", "tienda de campaña",
-  "mochila", "cantimplora", "linternas", "mapa", "binoculares", "cámara",
-  "foto", "selfie", "video", "película", "teatro", "circo", "payaso",
-  "mago", "conejo", "sombrero", "varita", "estrella", "polvo", "magia",
-  "dragón", "unicornio", "hada", "duende", "bruja", "hechizo", "poción",
-  "calabaza", "fantasma", "murciélago", "araña", "telaraña", "esqueleto",
-  "momia", "vampiro", "hombre lobo", "zombi", "cementerio", "tumba",
-  "vela", "calavera", "dulces", "truco", "trato", "disfraz", "máscara"
+  // 🐾 Animales (muchos, fáciles de dibujar)
+  "gato", "perro", "ratón", "conejo", "elefante", "jirafa", "león", "tigre",
+  "oso", "cerdo", "vaca", "caballo", "oveja", "pato", "gallina", "pájaro",
+  "pez", "rana", "tortuga", "serpiente", "cocodrilo", "hipopótamo", "rinoceronte",
+  "cebra", "mono", "gorila", "panda", "koala", "canguro", "zorro", "lobo",
+  "ardilla", "murciélago", "araña", "mariposa", "abeja", "hormiga", "caracol",
+  "pulpo", "ballena", "delfín", "tiburón", "estrella de mar", "cangrejo",
+
+  // 🍎 Comida (fácil)
+  "manzana", "plátano", "naranja", "uva", "fresa", "sandía", "piña", "pera",
+  "helado", "pizza", "hamburguesa", "hot dog", "taco", "huevo", "pan", "queso",
+  "leche", "galleta", "pastel", "donut", "caramelo", "zanahoria", "brócoli",
+
+  // 🏠 Casa / Objetos cotidianos
+  "casa", "árbol", "sol", "luna", "estrella", "nube", "flor", "hierba",
+  "coche", "camión", "autobús", "bicicleta", "moto", "avión", "barco", "tren",
+  "silla", "mesa", "cama", "puerta", "ventana", "techo", "pared", "suelo",
+  "espejo", "reloj", "teléfono", "ordenador", "libro", "lápiz", "pincel",
+  "zapato", "sombrero", "gafas", "camisa", "pantalón", "calcetines", "guantes",
+  "cepillo", "peine", "toalla", "jabón", "plato", "vaso", "tenedor", "cuchara",
+  "cuchillo", "olla", "sartén", "taza", "botella", "llave", "bolsa", "paraguas",
+
+  // 🎨 Diversión / Fáciles de dibujar
+  "pelota", "globo", "cometa", "balón", "raqueta", "guitarra", "piano", "tambor",
+  "micrófono", "cámara", "televisión", "radio", "robot", "cohete", "ovni",
+  "corona", "espada", "escudo", "varita", "sombrero de mago", "capa",
+
+  // 🌈 Naturaleza / Exterior
+  "montaña", "río", "lago", "mar", "playa", "arena", "ola", "concha",
+  "puente", "castillo", "torre", "fuente", "banco", "columpio", "tobogán",
+  "árbol de navidad", "regalo", "vela", "pastel de cumpleaños", "globos",
+
+  // 🎃 Halloween / Fantasía (divertidos y dibujables)
+  "calabaza", "fantasma", "bruja", "vampiro", "esqueleto", "murciélago",
+  "araña", "telaraña", "gato negro", "escoba", "sombrero de bruja", "dulces"
 ];
 
 // ---------------- GATO ----------------

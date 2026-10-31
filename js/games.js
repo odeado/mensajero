@@ -255,10 +255,8 @@ function render() {
     if (!mine) st.classList.add("turn");
   } else if (type === "pictionary") {
     const amDrawer = game.drawer === pi;
-    if (game.phase === "roundEnd") {
+    if (game.phase === "roundEnd" || game.phase === "gameOver") {
       st.textContent = amDrawer ? `La palabra era: "${game.word}"` : `¡Acertaste! Era "${game.word}"`;
-    } else if (game.phase === "guessed") {
-      st.textContent = amDrawer ? `¡${ctx.partner().name} acertó! Prepara la siguiente…` : "¡Correcto! 🎉";
     } else if (amDrawer) {
       st.textContent = `🎨 Dibuja: "${game.word}"`;
       st.classList.add("turn");
