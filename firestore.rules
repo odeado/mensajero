@@ -57,7 +57,7 @@ service cloud.firestore {
         && request.resource.data.players.size() == 2
         && request.resource.data.players[1] == null
         && request.resource.data.players[0] == request.auth.uid
-        && request.resource.data.type in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga'];
+        && request.resource.data.type in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga', 'pictionary'];
       allow update: if inChat(resource.data.chatId)
         && request.resource.data.chatId == resource.data.chatId
         && request.resource.data.type == resource.data.type
