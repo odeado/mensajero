@@ -6,7 +6,8 @@ export const GAMES = {
   cuatro:   { name: "4 en línea",  icon: "🔴", desc: "Junta 4 fichas" },
   damas:    { name: "Damas",       icon: "👑", desc: "Come todas las fichas" },
   cachipun: { name: "Cachipún",    icon: "✊", desc: "Piedra, papel o tijera (a 3)" },
-  jenga:    { name: "Jenga",       icon: "🧱", desc: "Saca bloques sin botar la torre" }
+  jenga:    { name: "Jenga",       icon: "🧱", desc: "Saca bloques sin botar la torre" },
+  pictionary: { name: "Pictionary", icon: "🎨", desc: "Dibuja y adivina la palabra" }
 };
 
 export function newState(type) {
@@ -17,11 +18,50 @@ export function newState(type) {
     case "damas": return { ...base, board: damasInitial(), chain: -1 };
     case "cachipun": return { ...base, picks: {}, score: [0, 0], round: 1 };
     case "jenga": return { ...base, board: "111".repeat(JENGA_LEVELS), fallen: false };
+    case "pictionary": return {
+      ...base,
+      drawer: 0,
+      word: randomWord(),
+      strokes: [],
+      guesses: [],
+      score: [0, 0],
+      round: 1,
+      phase: "drawing" // drawing, guessed, roundEnd
+    };
   }
   throw new Error("Juego desconocido");
 }
 
+function randomWord() {
+  return PICTIONARY_WORDS[Math.floor(Math.random() * PICTIONARY_WORDS.length)];
+}
+
 const setAt = (s, i, ch) => s.slice(0, i) + ch + s.slice(i + 1);
+
+// Palabras para Pictionary (español, variadas)
+export const PICTIONARY_WORDS = [
+  "gato", "perro", "casa", "árbol", "sol", "luna", "estrella", "coche",
+  "avión", "barco", "tren", "bicicleta", "manzana", "plátano", "helado",
+  "pizza", "hamburguesa", "flor", "mariposa", "pájaro", "pez", "rana",
+  "elefante", "jirafa", "león", "tigre", "oso", "conejo", "ratón",
+  "zapato", "sombrero", "gafas", "reloj", "teléfono", "ordenador", "libro",
+  "lapiz", "pincel", "piano", "guitarra", "tambor", "cama", "silla",
+  "mesa", "puerta", "ventana", "techo", "suelo", "pared", "espejo",
+  "cepillo", "peine", "toalla", "jabón", "plato", "vaso", "tenedor",
+  "cuchara", "cuchillo", "olla", "sartén", "horno", "nevera", "microondas",
+  "paraguas", "bufanda", "guantes", "chaqueta", "pantalón", "camisa",
+  "calcetines", "camiseta", "vestido", "falda", "botas", "sandalias",
+  "playa", "montaña", "río", "lago", "bosque", "desierto", "isla",
+  "puente", "castillo", "torre", "muralla", "puerta", "llave", "cofre",
+  "mapa", "brújula", "tienda", "fuego", "leña", "marshmallow", "tienda de campaña",
+  "mochila", "cantimplora", "linternas", "mapa", "binoculares", "cámara",
+  "foto", "selfie", "video", "película", "teatro", "circo", "payaso",
+  "mago", "conejo", "sombrero", "varita", "estrella", "polvo", "magia",
+  "dragón", "unicornio", "hada", "duende", "bruja", "hechizo", "poción",
+  "calabaza", "fantasma", "murciélago", "araña", "telaraña", "esqueleto",
+  "momia", "vampiro", "hombre lobo", "zombi", "cementerio", "tumba",
+  "vela", "calavera", "dulces", "truco", "trato", "disfraz", "máscara"
+];
 
 // ---------------- GATO ----------------
 const GATO_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -267,10 +307,82 @@ export function jengaMove(st, player, move) {
   return { ...st, board, turn: 1 - player, moves: st.moves + 1, last: { level, pos, ok: true, placed } };
 }
 
+// ---------------- PICTIONARY ----------------
+export function pictionaryMove(st, player, move) {
+  if (st.winner !== null) return null;
+
+  const { type } = move;
+
+  // Añadir trazo (solo el dibujante)
+  if (type === "stroke" && player === st.drawer) {
+    const { stroke } = move; // { points: [{x,y},...], color, width }
+    return { ...st, strokes: [...st.strokes, stroke], moves: st.moves + 1 };
+  }
+
+  // Adivinar (solo el adivinante)
+  if (type === "guess" && player !== st.drawer) {
+    const { text } = move;
+    const guess = text.trim().toLowerCase();
+    const isCorrect = guess === st.word.toLowerCase();
+    const guesses = [...st.guesses, { player, text: guess, correct: isCorrect, at: Date.now() }];
+
+    if (isCorrect) {
+      // ¡Acertó! Punto para el adivinante, cambiar roles
+      const score = [...st.score];
+      score[player]++;
+
+      // Ver si se acabó el juego (ej. 5 rondas)
+      const nextRound = st.round + 1;
+      const gameOver = nextRound > 5;
+
+      return {
+        ...st,
+        guesses,
+        score,
+        winner: gameOver ? (score[0] > score[1] ? 0 : score[1] > score[0] ? 1 : "draw") : null,
+        phase: gameOver ? "gameOver" : "roundEnd",
+        round: nextRound,
+        drawer: 1 - st.drawer,
+        word: gameOver ? st.word : randomWord(),
+        strokes: [],
+        guesses: [],
+        turn: 1 - st.drawer
+      };
+    }
+
+    return { ...st, guesses, moves: st.moves + 1 };
+  }
+
+  // Pasar a siguiente ronda (ambos jugadores pueden confirmar)
+  if (type === "nextRound" && st.phase === "roundEnd") {
+    return {
+      ...st,
+      phase: "drawing",
+      drawer: 1 - st.drawer,
+      word: randomWord(),
+      strokes: [],
+      guesses: [],
+      turn: 1 - st.drawer
+    };
+  }
+
+  // Limpiar canvas (solo dibujante)
+  if (type === "clear" && player === st.drawer) {
+    return { ...st, strokes: [], moves: st.moves + 1 };
+  }
+
+  return null;
+}
+
 // Turno "lógico" para mostrar/avisar
 export function isMyTurn(type, st, player) {
   if (st.winner !== null) return false;
   if (type === "cachipun") return st.picks[player] === undefined;
+  if (type === "pictionary") {
+    if (st.phase === "gameOver") return false;
+    // El dibujante siempre puede dibujar, el adivinante siempre puede adivinar
+    return true;
+  }
   return st.turn === player;
 }
 
@@ -281,6 +393,7 @@ export function applyMove(type, st, player, move) {
     case "damas": return damasMove(st, player, move.from, move.to);
     case "cachipun": return cachipunPick(st, player, move.choice);
     case "jenga": return jengaMove(st, player, move);
+    case "pictionary": return pictionaryMove(st, player, move);
   }
   return null;
 }

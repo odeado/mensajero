@@ -435,3 +435,55 @@
 .jenga-btns { display: flex; justify-content: center; gap: 10px; }
 .g-btn.ghost { background: var(--input-bg); color: var(--text-primary); }
 .game-play .g-foot { position: relative; z-index: 2; }
+
+/* Pictionary */
+.g-pictionary { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.pictionary-container { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 420px; }
+.pictionary-canvas-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.05);
+  overflow: hidden;
+  position: relative;
+}
+.pictionary-canvas { display: block; touch-action: none; }
+.pictionary-toolbar { display: flex; justify-content: center; gap: 8px; width: 100%; }
+.pictionary-guess-area { display: flex; gap: 8px; width: 100%; max-width: 420px; }
+.pictionary-input {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 20px;
+  padding: 10px 16px;
+  color: var(--text-primary);
+  font-size: 15px;
+}
+.pictionary-input:focus { outline: none; border-color: var(--accent-green); }
+.pictionary-history { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 420px; max-height: 150px; overflow-y: auto; }
+.pictionary-guess {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.pictionary-guess.correct {
+  border-color: #1fbf7a;
+  background: rgba(31,191,122,.15);
+  color: #1fbf7a;
+  font-weight: 600;
+}
+.pictionary-reveal {
+  text-align: center;
+  color: var(--accent-green);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 8px;
+  background: rgba(31,191,122,.1);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 420px;
+}

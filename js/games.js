@@ -4,7 +4,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
   GAMES, newState, applyMove, isMyTurn, gatoWinLine, cuatroFindWin, C4_ROWS, C4_COLS,
-  damasLegalMoves, damasCount, RPS, RPS_TARGET, jengaLevels, jengaCanTake, jengaZone
+  damasLegalMoves, damasCount, RPS, RPS_TARGET, jengaLevels, jengaCanTake, jengaZone,
+  PICTIONARY_WORDS
 } from "./games-logic.js";
 
 let ctx = null;          // { db, me(), partner(), toast, notify, sendInvite }
@@ -16,10 +17,11 @@ let busy = false;
 let wasMyTurn = null;
 let joining = false;
 
-const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks", "score", "round", "fallen"];
+const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks", "score", "round", "fallen", "drawer", "word", "strokes", "guesses", "phase"];
 let jPick = null;        // jenga: { level, pos, center, width }
 let jAnim = null;        // requestAnimationFrame id
 let jLastAnimated = "";  // para no repetir la animación del bloque puesto
+let pLastStrokesLen = 0; // pictionary: track new strokes for animation
 
 // ---------- DOM (usando modal unificado glassmorphism) ----------
 const menu = el("div", "modal-unified hidden");
@@ -218,13 +220,16 @@ function render() {
 
   // Jugadores / fichas
   const marks = {
-    gato: ["❌", "⭕"], cuatro: ["🔴", "🟡"], damas: ["⚪", "🔴"], cachipun: ["", ""], jenga: ["", ""]
+    gato: ["❌", "⭕"], cuatro: ["🔴", "🟡"], damas: ["⚪", "🔴"], cachipun: ["", ""], jenga: ["", ""], pictionary: ["", ""]
   }[type];
   if (type === "jenga") {
     $m(".g-players").textContent = `Pisos: ${jengaLevels(game.board)}   ·   Bloques sacados: ${game.moves}`;
   } else if (type === "cachipun") {
     $m(".g-players").textContent =
       `${nameOf(0)} ${game.score[0]} – ${game.score[1]} ${nameOf(1)}   ·   gana el primero a ${RPS_TARGET}`;
+  } else if (type === "pictionary") {
+    $m(".g-players").textContent =
+      `${nameOf(0)} ${game.score[0]} – ${game.score[1]} ${nameOf(1)}   ·   Ronda ${game.round} / 5`;
   } else {
     $m(".g-players").textContent = `${nameOf(0)}: ${marks[0]}    ${nameOf(1)}: ${marks[1]}`;
   }
@@ -236,6 +241,7 @@ function render() {
   else if (game.winner !== null && game.winner !== undefined) {
     const iWon = game.winner === pi;
     if (type === "jenga") st.textContent = iWon ? `💥 ¡${ctx.partner().name} botó la torre! Ganaste 🎉` : "💥 ¡Se te cayó la torre!";
+    else if (type === "pictionary") st.textContent = iWon ? "🎉 ¡Ganaste!" : `🏆 Ganó ${ctx.partner().name}`;
     else st.textContent = iWon ? "🎉 ¡Ganaste!" : `🏆 Ganó ${ctx.partner().name}`;
     st.classList.add(iWon ? "win" : "lose");
   } else if (type === "cachipun") {
@@ -245,6 +251,18 @@ function render() {
       ? `Elegiste ${RPS[mine].icon}. Esperando a ${ctx.partner().name}…`
       : other ? `${ctx.partner().name} ya eligió 🤫 ¡Te toca!` : `Ronda ${game.round}: ¡elige!`;
     if (!mine) st.classList.add("turn");
+  } else if (type === "pictionary") {
+    const amDrawer = game.drawer === pi;
+    if (game.phase === "roundEnd") {
+      st.textContent = amDrawer ? `La palabra era: "${game.word}"` : `¡Acertaste! Era "${game.word}"`;
+    } else if (game.phase === "guessed") {
+      st.textContent = amDrawer ? `¡${ctx.partner().name} acertó! Prepara la siguiente…` : "¡Correcto! 🎉";
+    } else if (amDrawer) {
+      st.textContent = `🎨 Dibuja: "${game.word}"`;
+      st.classList.add("turn");
+    } else {
+      st.textContent = `🤔 ${ctx.partner().name} está dibujando… Adivina!`;
+    }
   } else if (isMyTurn(type, game, pi)) {
     st.textContent = type === "damas" && game.chain >= 0 ? "¡Sigue comiendo!" : "¡Tu turno!";
     st.classList.add("turn");
@@ -256,7 +274,7 @@ function render() {
   const board = $m(".g-board");
   board.innerHTML = "";
   board.className = `g-board g-${type}`;
-  ({ gato: renderGato, cuatro: renderCuatro, damas: renderDamas, cachipun: renderCachipun, jenga: renderJenga })[type](board, pi);
+  ({ gato: renderGato, cuatro: renderCuatro, damas: renderDamas, cachipun: renderCachipun, jenga: renderJenga, pictionary: renderPictionary })[type](board, pi);
 
   // Pie
   const foot = $m(".g-foot");
@@ -470,4 +488,197 @@ function renderJenga(board, pi) {
     hint.textContent = ok ? "¡Bien! 😮‍💨" : "¡Uy! 😱";
     setTimeout(() => play({ level: pick.level, pos: pick.pos, ok }), 450);
   });
+}
+
+// ---------------- PICTIONARY ----------------
+function renderPictionary(board, pi) {
+  const amDrawer = game.drawer === pi;
+  const canDraw = amDrawer && game.phase === "drawing";
+  const canGuess = !amDrawer && (game.phase === "drawing" || game.phase === "guessed");
+  const roundEnd = game.phase === "roundEnd" || game.phase === "gameOver";
+
+  const container = el("div", "pictionary-container");
+
+  // Canvas area
+  const canvasWrap = el("div", "pictionary-canvas-wrap");
+  const canvas = el("canvas", "pictionary-canvas");
+  canvasWrap.appendChild(canvas);
+  container.appendChild(canvasWrap);
+
+  // Setup canvas
+  const ctx2d = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasWrap.getBoundingClientRect();
+  const width = Math.max(300, rect.width || 340);
+  const height = Math.max(300, rect.height || 340);
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  ctx2d.scale(dpr, dpr);
+  ctx2d.lineCap = "round";
+  ctx2d.lineJoin = "round";
+
+  // Draw existing strokes
+  function drawStrokes(strokes) {
+    ctx2d.clearRect(0, 0, width, height);
+    // White background
+    ctx2d.fillStyle = "#fff";
+    ctx2d.fillRect(0, 0, width, height);
+
+    strokes.forEach((stroke) => {
+      if (!stroke.points || stroke.points.length < 2) return;
+      ctx2d.strokeStyle = stroke.color || "#000";
+      ctx2d.lineWidth = stroke.width || 3;
+      ctx2d.beginPath();
+      ctx2d.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let i = 1; i < stroke.points.length; i++) {
+        ctx2d.lineTo(stroke.points[i].x, stroke.points[i].y);
+      }
+      ctx2d.stroke();
+    });
+  }
+
+  drawStrokes(game.strokes || []);
+
+  // Animate new strokes
+  if ((game.strokes || []).length > pLastStrokesLen) {
+    // New stroke added - could add a subtle animation here
+    pLastStrokesLen = (game.strokes || []).length;
+  }
+
+  // Drawing interaction (only for drawer)
+  if (canDraw) {
+    let drawing = false;
+    let currentStroke = null;
+
+    function getPos(e) {
+      const r = canvasWrap.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - r.left) * (width / r.width),
+        y: (clientY - r.top) * (height / r.height)
+      };
+    }
+
+    function startDraw(e) {
+      e.preventDefault();
+      drawing = true;
+      const pos = getPos(e);
+      currentStroke = { points: [pos], color: "#000", width: 3 };
+    }
+
+    function draw(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      currentStroke.points.push(pos);
+      // Draw in real-time locally
+      ctx2d.strokeStyle = currentStroke.color;
+      ctx2d.lineWidth = currentStroke.width;
+      ctx2d.lineCap = "round";
+      ctx2d.lineJoin = "round";
+      const pts = currentStroke.points;
+      ctx2d.beginPath();
+      ctx2d.moveTo(pts[pts.length - 2].x, pts[pts.length - 2].y);
+      ctx2d.lineTo(pos.x, pos.y);
+      ctx2d.stroke();
+    }
+
+    function endDraw() {
+      if (!drawing || !currentStroke || currentStroke.points.length < 2) {
+        drawing = false;
+        return;
+      }
+      drawing = false;
+      // Send stroke to Firestore
+      play({ type: "stroke", stroke: currentStroke });
+      currentStroke = null;
+    }
+
+    canvasWrap.addEventListener("mousedown", startDraw);
+    canvasWrap.addEventListener("mousemove", draw);
+    canvasWrap.addEventListener("mouseup", endDraw);
+    canvasWrap.addEventListener("mouseleave", endDraw);
+    canvasWrap.addEventListener("touchstart", startDraw, { passive: false });
+    canvasWrap.addEventListener("touchmove", draw, { passive: false });
+    canvasWrap.addEventListener("touchend", endDraw);
+
+    // Toolbar for drawer
+    const toolbar = el("div", "pictionary-toolbar");
+    const clearBtn = el("button", "g-btn");
+    clearBtn.type = "button";
+    clearBtn.textContent = "🗑️ Limpiar";
+    clearBtn.addEventListener("click", () => play({ type: "clear" }));
+    toolbar.appendChild(clearBtn);
+    container.appendChild(toolbar);
+  } else {
+    canvasWrap.style.cursor = "default";
+  }
+
+  // Guess input area (for guesser)
+  if (canGuess && !roundEnd) {
+    const guessArea = el("div", "pictionary-guess-area");
+    const input = el("input", "pictionary-input");
+    input.type = "text";
+    input.placeholder = "Escribe tu respuesta…";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.maxLength = 50;
+
+    const sendBtn = el("button", "g-btn");
+    sendBtn.type = "button";
+    sendBtn.textContent = "Enviar";
+
+    const submitGuess = () => {
+      const text = input.value.trim();
+      if (text) {
+        play({ type: "guess", text });
+        input.value = "";
+        input.focus();
+      }
+    };
+
+    sendBtn.addEventListener("click", submitGuess);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitGuess();
+    });
+
+    guessArea.append(input, sendBtn);
+    container.appendChild(guessArea);
+  }
+
+  // Show guesses history
+  if ((game.guesses || []).length > 0) {
+    const history = el("div", "pictionary-history");
+    game.guesses.forEach((g) => {
+      const item = el("div", "pictionary-guess" + (g.correct ? " correct" : ""));
+      const name = g.player === pi ? "Tú" : ctx.partner().name;
+      item.textContent = `${name}: ${g.text}`;
+      history.appendChild(item);
+    });
+    container.appendChild(history);
+  }
+
+  // Word reveal for drawer (when not drawing phase)
+  if (amDrawer && !canDraw && !roundEnd) {
+    const reveal = el("div", "pictionary-reveal");
+    reveal.textContent = `La palabra era: "${game.word}"`;
+    container.appendChild(reveal);
+  }
+
+  // Round end / next round button
+  if (roundEnd && !game.winner) {
+    const nextBtn = el("button", "g-btn");
+    nextBtn.type = "button";
+    nextBtn.textContent = amDrawer ? "➡️ Siguiente ronda" : "⏳ Esperando al dibujante…";
+    nextBtn.disabled = !amDrawer;
+    if (amDrawer) {
+      nextBtn.addEventListener("click", () => play({ type: "nextRound" }));
+    }
+    container.appendChild(nextBtn);
+  }
+
+  board.appendChild(container);
 }
