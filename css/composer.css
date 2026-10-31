@@ -1,5 +1,5 @@
 :root { --composer-radius: 24px; --tool-accent: #64e3bc; }
-.dictation-bar { display: flex; align-items: center; gap: 12px; flex-shrink: 0; background: var(--header-bg); color: var(--text-primary); padding: 8px 16px; font-size: 13px; }
+.dictation-bar { display: flex; align-items: center; gap: 12px; flex-shrink: 0; background: var(--glass-bg); color: var(--text-primary); padding: 8px 16px; font-size: 13px; border-bottom: 1px solid var(--glass-border); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
 .dictation-bar span { flex: 1; }
 .dictation-bar button { border: 1px solid var(--tool-accent); border-radius: 12px; background: transparent; color: var(--tool-accent); min-height: 44px; padding: 6px 14px; font: inherit; cursor: pointer; }
 .header-user-info { flex: 1; min-width: 0; }
@@ -8,12 +8,13 @@
 .user-details h3, #status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-details .status-badge { display: flex; align-items: center; }
 .status-dot { flex-shrink: 0; }
-.chat-input-bar { gap: 10px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
-.chat-input-bar .input-wrapper { min-width: 0; border: 1px solid #ffffff12; border-radius: var(--composer-radius); padding: 0 16px; }
+.chat-input-bar { gap: 10px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: var(--glass-bg); border-top: 1px solid var(--glass-border); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+.chat-input-bar .input-wrapper { min-width: 0; border: 1px solid var(--glass-border-light); border-radius: var(--composer-radius); padding: 0 16px; background: var(--glass-bg-light); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
 .chat-input-bar .input-wrapper:focus-within { border-color: var(--tool-accent); box-shadow: 0 0 0 3px #64e3bc12; }
 .chat-input-bar .input-wrapper input { min-width: 0; font-size: 16px; padding: 13px 0; }
 .chat-input-bar > .icon-btn { flex: 0 0 46px; width: 46px; height: 46px; }
-.tools-toggle { background: #64e3bc14; color: var(--tool-accent); border: 1px solid #64e3bc38; border-radius: 16px; font-size: 30px; }
+.tools-toggle { background: var(--glass-bg-light); color: var(--tool-accent); border: 1px solid var(--glass-border-light); border-radius: 16px; font-size: 30px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+.tools-toggle:hover { background: var(--glass-hover); border-color: var(--glass-hover-border); }
 .tools-toggle span { display: block; transition: transform .18s ease; }
 .tools-toggle[aria-expanded="true"] span { transform: rotate(45deg); }
 .send-btn:disabled { opacity: .4; cursor: default; }
@@ -119,9 +120,10 @@
 .tools-secondary button:hover { background: rgba(255,255,255,.06); color: var(--text-primary); border-color: rgba(255,255,255,.15); }
 .tools-secondary button:last-child { margin-left: auto; }
 .tools-grid button:focus-visible, .tools-toggle:focus-visible, .tools-heading button:focus-visible { outline: 2px solid var(--tool-accent); outline-offset: 3px; }
-.failed-sends { background: #472f2a; color: #ffe0d5; padding: 8px 16px; max-height: 130px; overflow: auto; font-size: 13px; }
+.failed-sends { background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 8px 16px; max-height: 130px; overflow: auto; font-size: 13px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
 .failed-sends > div { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
 .failed-sends span { flex: 1; overflow-wrap: anywhere; }
-.failed-sends button { min-height: 44px; background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 12px; padding: 6px 12px; cursor: pointer; }
+.failed-sends button { min-height: 44px; background: transparent; border: 1px solid var(--glass-border-light); color: var(--text-secondary); border-radius: 12px; padding: 6px 12px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.failed-sends button:hover { background: var(--glass-hover); border-color: var(--glass-hover-border); color: var(--text-primary); }
 @media (max-width: 359px) { .tools-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .chat-input-bar { padding-left: 10px; padding-right: 10px; gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { .tools-toggle span { transition: none; } }

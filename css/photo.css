@@ -78,7 +78,7 @@
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
 .modal-close:hover {
@@ -177,11 +177,12 @@
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
 .photo-close:hover {
   background: rgba(255, 255, 255, 0.13);
+  border-color: var(--glass-hover-border);
   color: var(--text-primary);
   transform: rotate(90deg);
 }
@@ -208,7 +209,7 @@
 
 .photo-option:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--glass-bg-light);
   border-color: rgba(0, 168, 132, 0.4);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
 }
@@ -300,11 +301,11 @@
   gap: 12px;
   padding: 14px;
   border-radius: 26px;
-  background: rgba(15, 24, 31, 0.92);
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   animation: dock-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -350,15 +351,16 @@
   height: 32px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--glass-bg-light);
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
 .camera-dock-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--glass-hover);
+  border-color: var(--glass-hover-border);
   color: var(--text-primary);
   transform: rotate(90deg);
 }
@@ -538,7 +540,7 @@
   height: 46px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--glass-bg-light);
   color: var(--text-primary);
   font-size: 16px;
   cursor: pointer;
