@@ -111,7 +111,13 @@
 
     <div id="failed-sends" class="failed-sends hidden" role="status" aria-live="polite"></div>
     <section id="tools-panel" class="tools-panel hidden" aria-label="Funciones del chat">
-      <div class="tools-heading"><div><strong>Comparte algo más</strong><span>Todo lo que puedes hacer, en un lugar</span></div><button type="button" id="tools-close" aria-label="Cerrar funciones">×</button></div>
+      <div class="tools-heading">
+        <div class="modal-titles">
+          <strong>Comparte algo más</strong>
+          <span>Todo lo que puedes hacer, en un lugar</span>
+        </div>
+        <button type="button" class="tools-close" id="tools-close" aria-label="Cerrar funciones"><i class="fa-solid fa-xmark"></i></button>
+      </div>
       <div class="tools-grid">
         <button type="button" id="btn-attach"><span>📷</span>Fotos</button>
         <button type="button" id="mic-btn"><span>🎙️</span>Nota de voz</button>
