@@ -53,14 +53,14 @@ const partnerNameEl = $("chat-partner-name");
 const meBtn = $("me-btn");
 const statusDot = $("status-dot");
 const statusText = $("status-text");
+const statusBadge = $("status-badge");
+const typingDots = $("typing-dots");
 const logoutBtn = $("logout-btn");
 const bellBtn = $("bell-btn");
 const netBanner = $("net-banner");
 const container = $("messages-container");
 const list = $("messages-list");
 const loadMoreBtn = $("load-more");
-const typingIndicator = $("typing-indicator");
-const typingText = $("typing-text");
 const sendForm = $("send-form");
 const input = $("message-input");
 const sendBtn = $("send-btn");
@@ -309,7 +309,8 @@ function selectChat(chatId) {
     unreadHidden = 0;
     partnerStatus = null;
     clearTimeout(typingHideTimer);
-    typingIndicator.classList.add("hidden");
+    statusBadge.classList.remove("typing");
+    typingDots.classList.add("hidden");
   }
   currentChatId = chatId;
   try { localStorage.setItem("last_chat_" + me.email, chatId); } catch {}
@@ -2330,11 +2331,15 @@ function subscribeStatus() {
     clearTimeout(typingHideTimer);
     const typingInThisChat = !partnerStatus?.activeChat || partnerStatus.activeChat === currentChatId;
     if (partnerStatus?.typing && typingInThisChat && isPartnerOnline()) {
-      typingText.textContent = `${partner.name} está escribiendo...`;
-      typingIndicator.classList.remove("hidden");
-      typingHideTimer = setTimeout(() => typingIndicator.classList.add("hidden"), 6000);
+      statusBadge.classList.add("typing");
+      typingDots.classList.remove("hidden");
+      typingHideTimer = setTimeout(() => {
+        statusBadge.classList.remove("typing");
+        typingDots.classList.add("hidden");
+      }, 6000);
     } else {
-      typingIndicator.classList.add("hidden");
+      statusBadge.classList.remove("typing");
+      typingDots.classList.add("hidden");
     }
   }, (err) => console.error(err));
 }
@@ -2354,6 +2359,9 @@ function renderPartnerStatus() {
       ? `Últ. vez ${formatTime(partnerStatus.lastSeen.toDate())}`
       : "Desconectado";
   }
+  // Clear typing state when rendering regular status
+  statusBadge.classList.remove("typing");
+  typingDots.classList.add("hidden");
 }
 
 function sendTyping(isTyping) {

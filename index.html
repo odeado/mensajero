@@ -60,9 +60,10 @@
         <div class="current-avatar" id="header-avatar">👤</div>
         <div class="user-details">
           <h3 id="chat-partner-name">…</h3>
-          <span class="status-badge">
+          <span class="status-badge" id="status-badge">
             <span class="status-dot offline" id="status-dot"></span>
             <span id="status-text">Desconectado</span>
+            <span class="typing-dots hidden" id="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
           </span>
         </div>
       </div>
@@ -84,11 +85,6 @@
       </div>
       <div id="messages-list" class="messages-list"></div>
     </main>
-
-    <div id="typing-indicator" class="typing-indicator hidden">
-      <span class="typing-dots"><span></span><span></span><span></span></span>
-      <span id="typing-text">está escribiendo...</span>
-    </div>
 
     <div id="emoji-panel" class="emoji-panel hidden"></div>
 
