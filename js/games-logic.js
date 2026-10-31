@@ -321,45 +321,42 @@ export function pictionaryMove(st, player, move) {
 
   // Adivinar (solo el adivinante)
   if (type === "guess" && player !== st.drawer) {
+    if (st.phase !== "drawing") return null;
     const { text } = move;
     const guess = text.trim().toLowerCase();
     const isCorrect = guess === st.word.toLowerCase();
     const guesses = [...st.guesses, { player, text: guess, correct: isCorrect, at: Date.now() }];
 
     if (isCorrect) {
-      // ¡Acertó! Punto para el adivinante, cambiar roles
+      // ¡Acertó! Punto para el adivinante
       const score = [...st.score];
       score[player]++;
 
-      // Ver si se acabó el juego (ej. 5 rondas)
-      const nextRound = st.round + 1;
-      const gameOver = nextRound > 5;
+      // Ver si se acabó el juego (5 rondas completadas)
+      const isGameOver = st.round >= 5;
 
       return {
         ...st,
         guesses,
         score,
-        winner: gameOver ? (score[0] > score[1] ? 0 : score[1] > score[0] ? 1 : "draw") : null,
-        phase: gameOver ? "gameOver" : "roundEnd",
-        round: nextRound,
-        drawer: 1 - st.drawer,
-        word: gameOver ? st.word : randomWord(),
-        strokes: [],
-        guesses: [],
-        turn: 1 - st.drawer
+        winner: isGameOver ? (score[0] > score[1] ? 0 : score[1] > score[0] ? 1 : "draw") : null,
+        phase: isGameOver ? "gameOver" : "roundEnd"
+        // Mantiene st.word intacto para mostrar la palabra acertada en el resumen
       };
     }
 
     return { ...st, guesses, moves: st.moves + 1 };
   }
 
-  // Pasar a siguiente ronda (ambos jugadores pueden confirmar)
+  // Pasar a siguiente ronda (solo cuando la ronda terminó)
   if (type === "nextRound" && st.phase === "roundEnd") {
+    const nextRound = st.round + 1;
     return {
       ...st,
       phase: "drawing",
+      round: nextRound,
       drawer: 1 - st.drawer,
-      word: randomWord(),
+      word: randomWord(), // Generar la palabra para la nueva ronda
       strokes: [],
       guesses: [],
       turn: 1 - st.drawer
