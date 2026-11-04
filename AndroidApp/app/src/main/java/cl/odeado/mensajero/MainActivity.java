@@ -14,6 +14,7 @@ import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -94,10 +95,8 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         ChatMonitorService.appVisible = true;
         ChatMonitorService.visibleChatId = null; // La web confirma qué conversación está mostrando.
-        ChatMonitorService.setListener((text, color) -> {
-            statusBar.setText(text);
-            statusBar.setBackgroundColor(color);
-        });
+        ChatMonitorService.setListener(this::renderOtherChatBanner);
+        ChatMonitorService.refreshBanner(this);
         if (!ChatMonitorService.isEnabled(this)) showDisabled();
         if (pausedAt > 0 && System.currentTimeMillis() - pausedAt > 5 * 60_000) webView.reload();
     }
@@ -111,8 +110,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showDisabled() {
-        statusBar.setText("⏸ Avisos desactivados — mantén presionado aquí para activarlos");
-        statusBar.setBackgroundColor(0xFF1E293B);
+        renderOtherChatBanner("", 0xFF1E293B);
+    }
+
+    private void renderOtherChatBanner(String text, int color) {
+        runOnUiThread(() -> {
+            statusBar.setText(text);
+            statusBar.setBackgroundColor(color);
+            statusBar.setVisibility(text == null || text.isEmpty() ? View.GONE : View.VISIBLE);
+        });
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -286,6 +292,12 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void chatHidden() {
             ChatMonitorService.visibleChatId = null;
+            ChatMonitorService.refreshBanner(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void showNotificationOptions() {
+            runOnUiThread(() -> showOptions());
         }
 
         @JavascriptInterface
@@ -298,6 +310,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshMonitor() {
+        ChatMonitorService.refreshBanner(this);
         if (ChatApi.hasSession(this) && ChatMonitorService.isEnabled(this)) {
             try {
                 ChatMonitorService.refresh(this);
@@ -377,14 +390,12 @@ public class MainActivity extends AppCompatActivity {
                 .setView(box)
                 .setCancelable(false)
                 .setPositiveButton("Activar", (d, w) -> signIn(input.getText().toString()))
-                .setNegativeButton("Ahora no", (d, w) ->
-                        statusBar.setText("🔒 Avisos sin activar — toca aquí para ingresar tu clave"))
+                .setNegativeButton("Ahora no", (d, w) -> showDisabled())
                 .show();
     }
 
     private void signIn(String password) {
         if (password.isEmpty()) { askPassword("Escribe la clave"); return; }
-        statusBar.setText("Iniciando sesión...");
         final Handler ui = new Handler(Looper.getMainLooper());
         new Thread(() -> {
             String err = null;
@@ -407,7 +418,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showOptions() {
-        boolean on = ChatMonitorService.isEnabled(this);
+        boolean on = ChatMonitorService.isEnabled(this) && ChatApi.hasSession(this);
         boolean optimizado = isBatteryOptimized();
         String[] items = {
                 on ? "Desactivar avisos" : "Activar avisos",
@@ -420,12 +431,12 @@ public class MainActivity extends AppCompatActivity {
                 .setItems(items, (d, which) -> {
                     if (which == 0) {
                         if (on) { ChatMonitorService.stop(this); showDisabled(); }
-                        else {
+                        else if (!ChatApi.hasSession(this)) {
+                            askPassword(null);
+                        } else {
                             ChatMonitorService.start(this);
-                            ChatMonitorService.setListener((text, color) -> {
-                                statusBar.setText(text);
-                                statusBar.setBackgroundColor(color);
-                            });
+                            ChatMonitorService.setListener(this::renderOtherChatBanner);
+                            ChatMonitorService.refreshBanner(this);
                         }
                     } else if (which == 1) {
                         ChatMonitorService.showTest(this);
@@ -435,8 +446,7 @@ public class MainActivity extends AppCompatActivity {
                         ChatMonitorService.stop(this);
                         ChatApi.signOut(this);
                         ChatMonitorService.prefs(this).edit().putBoolean("activo", true).apply();
-                        statusBar.setText("🔒 Avisos sin activar — toca aquí para ingresar tu clave");
-                        statusBar.setBackgroundColor(0xFF1E293B);
+                        showDisabled();
                     }
                 })
                 .show();

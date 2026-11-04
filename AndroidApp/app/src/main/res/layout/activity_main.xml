@@ -17,7 +17,8 @@
         android:textSize="13sp"
         android:textStyle="bold"
         android:background="#1E293B"
-        android:text="Conectando con el chat..." />
+        android:contentDescription="Mensajes nuevos en otras conversaciones"
+        android:visibility="gone" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipeRefresh"

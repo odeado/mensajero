@@ -2331,11 +2331,11 @@ function subscribeStatus() {
     clearTimeout(typingHideTimer);
     const typingInThisChat = !partnerStatus?.activeChat || partnerStatus.activeChat === currentChatId;
     if (partnerStatus?.typing && typingInThisChat && isPartnerOnline()) {
+      statusText.textContent = "Escribiendo…";
       statusBadge.classList.add("typing");
       typingDots.classList.remove("hidden");
       typingHideTimer = setTimeout(() => {
-        statusBadge.classList.remove("typing");
-        typingDots.classList.add("hidden");
+        renderPartnerStatus();
       }, 6000);
     } else {
       statusBadge.classList.remove("typing");
@@ -2395,6 +2395,12 @@ window.addEventListener("pagehide", () => { if (me) setStatus({ online: false, t
 
 // ---------- Notificaciones ----------
 function renderBell() {
+  if (window.MensajeroNative?.showNotificationOptions) {
+    bellBtn.classList.remove("hidden");
+    bellBtn.textContent = "🔔 Avisos Android";
+    bellBtn.title = "Configurar avisos del APK";
+    return;
+  }
   const s = notifState();
   bellBtn.classList.toggle("hidden", s === "unsupported");
   bellBtn.innerHTML = s === "granted"
@@ -2403,6 +2409,11 @@ function renderBell() {
   bellBtn.title = s === "granted" ? "Notificaciones activadas" : "Activar notificaciones";
 }
 bellBtn.addEventListener("click", async () => {
+  if (window.MensajeroNative?.showNotificationOptions) {
+    closeTools();
+    window.MensajeroNative.showNotificationOptions();
+    return;
+  }
   const s = await toggleNotifications();
   renderBell();
   if (s === "granted") toast("🔔 Notificaciones activadas");

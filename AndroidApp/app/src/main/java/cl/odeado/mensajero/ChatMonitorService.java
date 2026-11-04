@@ -64,12 +64,34 @@ public class ChatMonitorService extends Service {
 
     public interface Listener { void onUpdate(String text, int color); }
     private static volatile Listener listener;
-    private static volatile String lastText = "Conectando con el chat...";
-    private static volatile int lastColor = 0xFF1E293B;
 
     public static void setListener(Listener l) {
         listener = l;
-        if (l != null) l.onUpdate(lastText, lastColor);
+        if (l != null) l.onUpdate("", 0xFF1E293B);
+    }
+
+    /** Se calcula con el chat actual; nunca reutiliza el estado del contacto. */
+    public static void refreshBanner(Context context) {
+        final Context c = context.getApplicationContext();
+        new Handler(Looper.getMainLooper()).post(() -> {
+            Listener l = listener;
+            if (l == null) return;
+            String text = "";
+            if (isEnabled(c) && ChatApi.hasSession(c)) {
+                try {
+                    List<String> chats = new ArrayList<>();
+                    JSONArray pend = new JSONArray(prefs(c).getString("pendientes", "[]"));
+                    for (int i = 0; i < pend.length(); i++) {
+                        JSONObject message = pend.optJSONObject(i);
+                        if (message != null) chats.add(message.optString("chatId", ChatApi.DEFAULT_CHAT));
+                    }
+                    Map<String, String> names = new LinkedHashMap<>();
+                    for (ChatApi.ChatInfo chat : ChatApi.chats(c)) names.put(chat.id, chat.partnerName);
+                    text = OtherChatBanner.text(visibleChatId, chats, names);
+                } catch (Exception ignored) {}
+            }
+            l.onUpdate(text, 0xFF193E45);
+        });
     }
 
     private HandlerThread thread;
@@ -98,6 +120,7 @@ public class ChatMonitorService extends Service {
     public static void stop(Context c) {
         prefs(c).edit().putBoolean("activo", false).apply();
         c.stopService(new Intent(c, ChatMonitorService.class));
+        refreshBanner(c);
     }
 
     public static boolean isEnabled(Context c) {
@@ -114,6 +137,7 @@ public class ChatMonitorService extends Service {
         NotificationManager nm = (NotificationManager) c.getSystemService(NOTIFICATION_SERVICE);
         nm.cancel(NOTIF_MSG_ID);
         for (ChatApi.ChatInfo ci : ChatApi.chats(c)) nm.cancel(msgNotifId(ci.id));
+        refreshBanner(c);
     }
 
     /** Se borran solo los pendientes y la notificación de un chat concreto. */
@@ -129,6 +153,7 @@ public class ChatMonitorService extends Service {
         } catch (Exception ignored) {}
         prefs(c).edit().putString("pendientes", keep.toString()).apply();
         ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).cancel(msgNotifId(chatId));
+        refreshBanner(c);
     }
 
     /** Identificador estable de la notificación de mensajes de cada chat. */
@@ -425,11 +450,6 @@ public class ChatMonitorService extends Service {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         lastNotif = buildStatus(title, text, color);
         nm.notify(NOTIF_STATUS_ID, lastNotif);
-        lastText = title + "\n" + text;
-        lastColor = Color.rgb(Color.red(color) * 2 / 5, Color.green(color) * 2 / 5, Color.blue(color) * 2 / 5);
-        final Listener l = listener;
-        final String t = lastText;
-        final int col = lastColor;
-        if (l != null) main.post(() -> l.onUpdate(t, col));
+        refreshBanner(this);
     }
 }

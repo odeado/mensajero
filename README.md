@@ -21,6 +21,7 @@ URL: `https://odeado.github.io/mensajero/`
 - Escribe **Papá**, **Hija** o **Amor** y la clave; la sesión queda guardada en el teléfono.
 - El botón **+** reúne Fotos, Nota de voz, Emojis, Juegos, Tarjetas, Texto grande y Álbum. La barra deja el resto del espacio para escribir.
 - En ese mismo panel están **Activar/Desactivar avisos** y **Cerrar sesión**.
+- En el APK 1.5.2, **+ → Avisos Android** permite configurar los avisos, probar su sonido y permitirlos con la pantalla apagada. El estado del contacto aparece solo en el encabezado; la franja superior se muestra únicamente si hay mensajes pendientes de otra conversación e identifica a la persona.
 - Los envíos rechazados aparecen en su conversación con **Reintentar**. Se guardan en este dispositivo mediante IndexedDB; sin almacenamiento disponible, se conservan durante la sesión. Los pendientes sin conexión siguen a cargo de la caché de Firestore.
 - Si alguien olvida su clave: Consola Firebase → Authentication → Usuarios → ⋮ → Restablecer contraseña (o borrar y crear de nuevo).
 - Para cambiar de usuario: **+ → Cerrar sesión**.
@@ -59,10 +60,10 @@ URL: `https://odeado.github.io/mensajero/`
 ## Avisos con sonido en el APK
 - El APK usa el canal de notificación **Mensajes** con sonido y vibración del sistema.
 - Para que lleguen y suenen con la app minimizada o la pantalla apagada:
-  mantener presionada la barra verde superior → **Permitir avisos con pantalla apagada**.
+  **+ → Avisos Android → Permitir avisos con pantalla apagada**.
 - En Xiaomi/Redmi además hay que activar **Autostart**, poner **Sin restricciones** en el ahorro de batería
   y bloquear la app en la lista de recientes.
-- Para comprobar el sonido: mantener presionada la barra superior → **Probar sonido del aviso**.
+- Para comprobar el sonido: **+ → Avisos Android → Probar sonido del aviso**.
 - Si no suena, revisar que el teléfono no esté en silencio/No molestar y que
   Ajustes → Apps → Mensajero → Notificaciones → **Mensajes** tenga sonido activado.
 
