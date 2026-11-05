@@ -9,10 +9,10 @@ export function initVideoCalls(ctx) {
   const dock = document.createElement('section');
   dock.className = 'call-dock hidden';
   dock.setAttribute('aria-label', 'Videollamada en curso');
-  dock.innerHTML = `<div class="call-grip"><span class="call-person"></span><button type="button" class="call-fold" aria-label="Minimizar videollamada" aria-expanded="true">−</button><button type="button" class="call-end" aria-label="Colgar">☎</button></div>
+  dock.innerHTML = `<div class="call-grip"><span class="call-person"></span><button type="button" class="call-expand" aria-label="Agrandar videollamada" aria-pressed="false">⛶</button><button type="button" class="call-fold" aria-label="Minimizar videollamada" aria-expanded="true">−</button><button type="button" class="call-end" aria-label="Colgar">☎</button></div>
     <div class="call-videos"><video class="call-remote" autoplay playsinline></video><video class="call-local" autoplay playsinline muted></video></div>
     <div class="call-state" role="status" aria-live="polite"></div>
-    <div class="call-controls"><button type="button" class="call-mic" aria-pressed="false" aria-label="Silenciar micrófono">🎙️</button><button type="button" class="call-camera" aria-pressed="false" aria-label="Apagar cámara">📹</button><button type="button" class="call-sound hidden">Activar sonido</button></div>`;
+    <div class="call-controls"><button type="button" class="call-mic" aria-pressed="false" aria-label="Silenciar micrófono">🎙️</button><button type="button" class="call-camera" aria-pressed="false" aria-label="Apagar cámara">📹</button><button type="button" class="call-switch" aria-label="Cambiar a cámara trasera">🔄</button><button type="button" class="call-sound hidden">Activar sonido</button></div>`;
   const invite = document.createElement('section');
   invite.className = 'call-invite hidden';
   invite.setAttribute('role', 'alertdialog');
@@ -23,7 +23,25 @@ export function initVideoCalls(ctx) {
   const remote = $('.call-remote'), local = $('.call-local');
   local.muted = true;
   let route = null, epoch = 0, unsubscribe = null, incoming = null, session = null, signalError = null;
-  let incomingTimer;
+  let incomingTimer, controlsTimer;
+  let gameMode = false;
+  function syncLayout() {
+    const active = Boolean(session);
+    document.body.classList.toggle('game-call-active', active && gameMode);
+    dock.classList.toggle('in-game', gameMode);
+    if (gameMode) {
+      dock.classList.remove('enlarged');
+      $('.call-expand').setAttribute('aria-pressed', 'false');
+      dock.style.left = dock.style.top = dock.style.right = '';
+    }
+  }
+  function revealControls() {
+    clearTimeout(controlsTimer);
+    dock.classList.add('show-controls');
+    controlsTimer = setTimeout(() => {
+      if (!dock.contains(document.activeElement)) dock.classList.remove('show-controls');
+    }, 4000);
+  }
   const stateLabels = { permission: 'Preparando cámara…', ringing: 'Llamando…', connecting: 'Conectando…', connected: 'En llamada', reconnecting: 'Reconectando…' };
   function showState(state) { $('.call-state').textContent = stateLabels[state] || state; }
   function hideInvite() { incoming = null; clearTimeout(incomingTimer); invite.classList.add('hidden'); }
@@ -55,6 +73,8 @@ export function initVideoCalls(ctx) {
     clearTimeout(s.deadline);
     if (session === s) {
       session = null;
+      syncLayout();
+      clearTimeout(controlsTimer);
       local.srcObject = remote.srcObject = null;
       dock.classList.add('hidden');
       if (message) ctx.toast(message);
@@ -115,6 +135,9 @@ export function initVideoCalls(ctx) {
     ctx.beforeStart();
     const s = { id, role, route: { ...target }, ref: doc(ctx.db, 'calls', target.chatId), deviceId: uuid(), pending: [], closed: false, published: false, signalExists: role === 'callee' };
     session = s;
+    syncLayout();
+    s.facing = 'user';
+    local.classList.remove('rear-camera');
     dock.classList.remove('hidden', 'folded');
     $('.call-fold').setAttribute('aria-expanded', 'true');
     $('.call-person').textContent = target.partnerName;
@@ -124,21 +147,21 @@ export function initVideoCalls(ctx) {
     $('.call-camera').setAttribute('aria-label', 'Apagar cámara');
     $('.call-mic').textContent = '🎙️';
     $('.call-camera').textContent = '📹';
-    $('.call-mic').disabled = $('.call-camera').disabled = true;
+    $('.call-mic').disabled = $('.call-camera').disabled = $('.call-switch').disabled = true;
     $('.call-sound').classList.add('hidden');
     showState('permission');
     try {
       const config = await iceConfig();
       if (session !== s || s.closed) throw new Error('Llamada cancelada');
       s.media = new CallMedia({
-        getMedia: () => navigator.mediaDevices.getUserMedia({
+        getMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints || {
           video: { facingMode: 'user', width: { ideal: 320, max: 640 }, height: { ideal: 240, max: 480 }, frameRate: { ideal: 15, max: 20 } },
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         }),
         createPeer: () => new RTCPeerConnection(config),
         onLocal: (stream) => { if (session === s) {
           local.srcObject = stream; local.play().catch(() => {});
-          $('.call-mic').disabled = $('.call-camera').disabled = false;
+          $('.call-mic').disabled = $('.call-camera').disabled = $('.call-switch').disabled = false;
         } },
         onRemote: (stream) => {
           if (session !== s || s.closed) return;
@@ -267,6 +290,40 @@ export function initVideoCalls(ctx) {
       if (version === epoch && route) receive(snapshot.data());
     }, (error) => { if (version === epoch) { signalError = error; console.warn('Señalización de llamadas', error.code); } });
   }
+  $('.call-expand').addEventListener('click', () => {
+    if (gameMode) return;
+    const expanded = dock.classList.toggle('enlarged');
+    dock.classList.remove('folded');
+    dock.style.left = dock.style.top = dock.style.right = '';
+    $('.call-expand').setAttribute('aria-pressed', String(expanded));
+    $('.call-expand').setAttribute('aria-label', expanded ? 'Reducir videollamada' : 'Agrandar videollamada');
+    $('.call-fold').setAttribute('aria-expanded', 'true');
+  });
+  $('.call-switch').addEventListener('click', async () => {
+    const s = session;
+    if (!s?.media?.stream || s.changingCamera) return;
+    s.changingCamera = true;
+    $('.call-switch').disabled = true;
+    const facing = s.facing === 'user' ? 'environment' : 'user';
+    try {
+      await s.media.switchCamera(facing);
+      if (session !== s) return;
+      s.facing = facing;
+      local.classList.toggle('rear-camera', facing === 'environment');
+      $('.call-switch').setAttribute('aria-label', facing === 'user' ? 'Cambiar a cámara trasera' : 'Cambiar a cámara frontal');
+    } catch (error) { if (session === s) ctx.toast('No se pudo cambiar de cámara. Comprueba que esté disponible.'); }
+    finally { s.changingCamera = false; if (session === s) $('.call-switch').disabled = false; }
+  });
+  const videos = $('.call-videos');
+  videos.tabIndex = 0;
+  videos.setAttribute('role', 'button');
+  videos.setAttribute('aria-label', 'Mostrar controles de videollamada');
+  videos.addEventListener('click', revealControls);
+  videos.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); revealControls(); }
+  });
+  dock.addEventListener('focusin', revealControls);
+  dock.addEventListener('focusout', revealControls);
   $('.call-end').addEventListener('click', () => close(session, true));
   $('.call-fold').addEventListener('click', () => {
     const folded = dock.classList.toggle('folded');
@@ -291,7 +348,7 @@ export function initVideoCalls(ctx) {
   let drag = null;
   const grip = $('.call-grip');
   grip.addEventListener('pointerdown', (event) => {
-    if (event.target.closest('button')) return;
+    if (gameMode || dock.classList.contains('enlarged') || event.target.closest('button')) return;
     const rect = dock.getBoundingClientRect();
     drag = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     grip.setPointerCapture(event.pointerId);
@@ -307,5 +364,5 @@ export function initVideoCalls(ctx) {
   window.addEventListener('pagehide', () => { hideInvite(); close(session, true); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible' && session) close(session, true); });
   return { start, setChat, get active() { return Boolean(session); },
-    setGameMode: (active) => dock.classList.toggle('in-game', active) };
+    setGameMode: (active) => { gameMode = active; dock.classList.remove('show-controls'); syncLayout(); } };
 }

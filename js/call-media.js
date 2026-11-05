@@ -89,6 +89,37 @@ export class CallMedia {
   setEnabled(kind, enabled) {
     this.stream?.getTracks().filter((track) => track.kind === kind).forEach((track) => { track.enabled = enabled; });
   }
+  async switchCamera(facingMode) {
+    if (this.switching) return this.switching;
+    this.check();
+    this.switching = (async () => {
+      const old = this.stream?.getTracks().find((track) => track.kind === 'video');
+      const sender = this.peer?.getSenders().find((item) => item.track === old);
+      if (!old || !sender) throw new Error('Cámara no disponible');
+      // Liberar primero la cámara: algunos teléfonos no permiten abrir ambas.
+      const enabled = old.enabled;
+      const previous = old.getSettings?.().facingMode || 'user';
+      old.stop();
+      const acquire = (mode) => this.getMedia({ audio: false, video: { facingMode: { exact: mode }, width: { ideal: 320, max: 640 }, height: { ideal: 240, max: 480 }, frameRate: { ideal: 15, max: 20 } } });
+      let replacement;
+      let switchError;
+      try { replacement = await acquire(facingMode); }
+      catch (error) { switchError = error; if (!this.closed) replacement = await acquire(previous); }
+      if (!replacement) { this.check(); throw switchError; }
+      try {
+        this.check();
+        const track = replacement.getTracks().find((item) => item.kind === 'video');
+        track.enabled = enabled;
+        await sender.replaceTrack(track);
+        this.check();
+        this.stream.removeTrack(old);
+        this.stream.addTrack(track);
+        this.onLocal(this.stream);
+      } catch (error) { replacement.getTracks().forEach((track) => track.stop()); throw error; }
+      if (switchError) throw switchError;
+    })();
+    try { return await this.switching; } finally { this.switching = null; }
+  }
   close() {
     if (this.closed) return;
     this.closed = true;

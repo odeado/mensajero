@@ -61,3 +61,32 @@ test('silenciar, apagar cámara y colgar liberan las dos pistas sin reabrirlas',
   assert.deepEqual(f.tracks.map((track)=>track.stopped),[1,1]);assert.equal(f.peer.closed,1);
   await f.media.addCandidate({candidate:'late'});assert.equal(f.peer.candidates.length,0);
 });
+
+
+test('cambiar cámara reemplaza solo vídeo y conserva micrófono y silencio', async () => {
+  const f = fixture(); await f.media.prepare();
+  f.media.setEnabled('video', false);
+  const next = {kind:'video',enabled:true,stop(){this.stopped=true;}};
+  let sent, constraints;
+  f.peer.getSenders = () => [{track:f.tracks[1],async replaceTrack(track){sent=track;}}];
+  f.stream.removeTrack = (track) => f.tracks.splice(f.tracks.indexOf(track),1);
+  f.stream.addTrack = (track) => f.tracks.push(track);
+  f.media.getMedia = async (value) => { constraints=value; return {getTracks:()=>[next]}; };
+  await f.media.switchCamera('environment');
+  assert.equal(constraints.audio,false);
+  assert.equal(constraints.video.facingMode.exact,'environment');
+  assert.equal(sent,next); assert.equal(next.enabled,false);
+  assert.equal(f.tracks[0].stopped,0); assert.equal(f.tracks[1],next);
+  f.media.close(); assert.equal(next.stopped,true);
+});
+
+test('colgar durante cambio de cámara libera la nueva pista', async () => {
+  const f=fixture();await f.media.prepare();
+  let release;
+  const next={kind:'video',stop(){this.stopped=true;}};
+  f.peer.getSenders=()=>[{track:f.tracks[1],async replaceTrack(){assert.fail('llamada cerrada');}}];
+  f.media.getMedia=()=>new Promise(resolve=>{release=resolve;});
+  const changing=f.media.switchCamera('environment');
+  f.media.close();release({getTracks:()=>[next]});
+  await assert.rejects(changing,/cancelada/);assert.equal(next.stopped,true);
+});

@@ -21,3 +21,24 @@
 .call-invite button { flex: 1; min-height: 46px; border-radius: 12px; border: 1px solid var(--glass-border-light); background: var(--input-bg); color: var(--text-primary); font: inherit; cursor: pointer; }
 .call-invite .call-accept { background: var(--accent-green); color: #fff; }
 .game-video-btn { margin-left: auto; margin-right: 8px; }
+
+/* Vídeo grande para conversar; durante el juego se reserva una franja propia. */
+.call-local.rear-camera { transform: none; }
+.call-dock.enlarged { inset: max(12px, env(safe-area-inset-top)) 12px auto auto; width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.call-dock.enlarged .call-videos { max-height: calc(100dvh - 160px); }
+.call-dock.enlarged .call-remote { object-fit: contain; }
+.call-dock.enlarged .call-grip { cursor: default; }
+.call-dock.in-game { top: max(8px, env(safe-area-inset-top)); right: 12px; left: auto; width: 128px; height: 96px; border-radius: 12px; overflow: visible; }
+.call-dock.in-game .call-videos { aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; }
+.call-dock.in-game .call-grip { display: none; }
+.call-dock.in-game .call-state { display: none; }
+.call-dock.in-game .call-controls { display: none; }
+.call-dock.in-game.folded .call-videos { display: block; }
+.call-dock.in-game.show-controls .call-grip { display: flex; position: absolute; top: 0; right: 0; left: 0; z-index: 2; border-radius: 12px 12px 0 0; background: #101820dc; }
+.call-dock.in-game.show-controls .call-person, .call-dock.in-game .call-expand, .call-dock.in-game .call-fold { display: none; }
+.call-dock.in-game.show-controls .call-end { margin-left: auto; }
+.call-dock.in-game.show-controls .call-controls { display: flex; position: absolute; top: 0; right: calc(100% + 6px); width: min(164px, calc(100vw - 160px)); padding: 6px; border-radius: 12px; background: var(--header-bg); box-shadow: var(--shadow); z-index: 3; }
+.call-dock.in-game .call-videos:focus-visible { outline: 2px solid var(--tool-accent); }
+body.game-call-active .modal-unified:has(.game-play) { padding-top: calc(116px + env(safe-area-inset-top, 0px)); align-items: start; }
+body.game-call-active .game-play { max-height: calc(100dvh - 138px - env(safe-area-inset-top, 0px)); }
+body.game-call-active .game-video-btn { visibility: hidden; }
