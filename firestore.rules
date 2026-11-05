@@ -51,6 +51,42 @@ service cloud.firestore {
 
     // Partidas de juegos
     match /games/{id} {
+      function validPictionaryUpdate() {
+        let a = resource.data;
+        let b = request.resource.data;
+        let started = a.get('roundStartedAt', null);
+        let ended = a.get('roundEndedAt', null);
+        let changed = b.diff(a).affectedKeys();
+        return (
+          // El reloj arranca cuando hay dos jugadores; también actualiza partidas antiguas.
+          (started == null && a.phase == 'drawing' && b.phase == 'drawing'
+            && b.round == a.round && b.players[1] != null
+            && b.roundStartedAt == request.time
+            && changed.hasOnly(['players', 'roundStartedAt', 'updatedAt']))
+          ||
+          (started is timestamp && a.phase == 'drawing'
+            && b.round == a.round && b.roundStartedAt == started
+            && b.word == a.word && b.drawer == a.drawer
+            && (
+              (b.phase == 'drawing' && request.time < started + duration.value(60, 's')
+                && b.score == a.score && b.winner == a.winner
+                && changed.hasOnly(['strokes', 'guesses', 'moves', 'updatedAt']))
+              ||
+              (b.phase in ['roundEnd', 'gameOver'] && b.roundEndedAt == request.time
+                && changed.hasOnly(['guesses', 'score', 'moves', 'roundEndedAt', 'roundOutcome', 'phase', 'winner', 'updatedAt'])
+                && ((b.roundOutcome == 'timeout' && request.time >= started + duration.value(60, 's') && b.score == a.score)
+                  || (b.roundOutcome == 'guessed' && request.time < started + duration.value(60, 's')
+                    && a.players[a.drawer] != request.auth.uid)))
+            ))
+          ||
+          (a.phase == 'roundEnd' && (ended == null || request.time >= ended + duration.value(4, 's'))
+            && b.phase == 'drawing' && b.round == a.round + 1 && b.drawer == 1 - a.drawer
+            && b.roundStartedAt == request.time && b.get('roundEndedAt', null) == null
+            && b.get('roundOutcome', null) == null && b.score == a.score && b.winner == null
+            && b.players == a.players && b.strokes == [] && b.guesses == []
+            && b.word is string && b.word.size() <= 50)
+        );
+      }
       allow read: if inChat(resource.data.chatId);
       allow create: if inChat(request.resource.data.chatId)
         && request.resource.data.players is list
@@ -68,8 +104,79 @@ service cloud.firestore {
           && request.auth.uid in resource.data.players
           || resource.data.players[1] == null
           && request.auth.uid != resource.data.players[0]
-          && request.resource.data.players[1] == request.auth.uid);
+          && request.resource.data.players[1] == request.auth.uid)
+        && (resource.data.type != 'pictionary' || validPictionaryUpdate());
       allow delete: if false;
+    }
+
+    // Solo señalización de videollamadas. El audio y vídeo viajan por WebRTC.
+    match /calls/{chatId} {
+      function targetAllowed(email) {
+        return email != request.auth.token.email && (
+          (chatId == 'papa_hija' && email in ['papa@chat-familia.local', 'hija@chat-familia.local'])
+          || (chatId == 'papa_amor' && email in ['papa@chat-familia.local', 'amor@chat-familia.local'])
+        );
+      }
+      function validOffer() {
+        let b = request.resource.data;
+        return b.keys().hasOnly(['callId', 'callerUid', 'callerEmail', 'callerDeviceId', 'targetEmail', 'calleeUid', 'answererId', 'offer', 'answer', 'status', 'createdAt', 'updatedAt'])
+          && b.callId is string && b.callId.size() > 0 && b.callId.size() <= 80
+          && b.callerUid == request.auth.uid && b.callerEmail == request.auth.token.email
+          && b.callerDeviceId is string && b.callerDeviceId.size() <= 80
+          && targetAllowed(b.targetEmail) && b.calleeUid == null && b.answererId == null
+          && b.offer is string && b.offer.size() > 0 && b.offer.size() <= 64000
+          && b.answer == null && b.status == 'ringing'
+          && b.createdAt == request.time && b.updatedAt == request.time;
+      }
+      function isPeer() {
+        return request.auth.uid == resource.data.callerUid
+          || request.auth.uid == resource.data.calleeUid;
+      }
+      function validCallUpdate() {
+        let a = resource.data;
+        let b = request.resource.data;
+        let changed = b.diff(a).affectedKeys();
+        return b.callId == a.callId && b.updatedAt == request.time && (
+          (b.status == 'ended' && changed.hasOnly(['status', 'updatedAt'])
+            && (isPeer() || (a.status == 'ringing' && a.targetEmail == request.auth.token.email)))
+          ||
+          (a.status in ['ringing', 'connecting', 'active'] && changed.hasOnly(['updatedAt']) && isPeer())
+          ||
+          (a.status == 'ringing' && a.targetEmail == request.auth.token.email
+            && request.time < a.createdAt + duration.value(45, 's')
+            && b.status == 'connecting' && b.calleeUid == request.auth.uid
+            && b.answererId is string && b.answererId.size() <= 80
+            && b.answer is string && b.answer.size() > 0 && b.answer.size() <= 64000
+            && changed.hasOnly(['calleeUid', 'answererId', 'answer', 'status', 'updatedAt']))
+          ||
+          (a.status in ['connecting', 'active'] && b.status == 'active' && isPeer()
+            && changed.hasOnly(['status', 'updatedAt']))
+        );
+      }
+      allow read: if inChat(chatId);
+      allow create: if inChat(chatId) && validOffer();
+      allow update: if inChat(chatId) && (validCallUpdate()
+        || ((resource.data.status == 'ended' || request.time > resource.data.updatedAt + duration.value(90, 's'))
+          && request.resource.data.callId != resource.data.callId && validOffer()));
+      allow delete: if false;
+
+      match /candidates/{candidateId} {
+        function currentCall() { return get(/databases/$(database)/documents/calls/$(chatId)).data; }
+        allow read: if inChat(chatId) && resource.data.callId == currentCall().callId;
+        allow create: if inChat(chatId)
+          && request.resource.data.keys().hasOnly(['callId', 'fromUid', 'candidate', 'sdpMid', 'sdpMLineIndex', 'createdAt'])
+          && request.resource.data.callId == currentCall().callId
+          && currentCall().status in ['ringing', 'connecting', 'active']
+          && request.auth.uid in [currentCall().callerUid, currentCall().calleeUid]
+          && request.resource.data.fromUid == request.auth.uid
+          && request.resource.data.candidate is string && request.resource.data.candidate.size() <= 2048
+          && (request.resource.data.sdpMid == null || (request.resource.data.sdpMid is string && request.resource.data.sdpMid.size() <= 255))
+          && (request.resource.data.sdpMLineIndex == null || (request.resource.data.sdpMLineIndex is int && request.resource.data.sdpMLineIndex >= 0 && request.resource.data.sdpMLineIndex <= 50))
+          && request.resource.data.createdAt == request.time;
+        allow delete: if inChat(chatId) && resource.data.callId == currentCall().callId
+          && (currentCall().status == 'ended' || request.auth.uid in [currentCall().callerUid, currentCall().calleeUid]);
+        allow update: if false;
+      }
     }
 
     // En línea / escribiendo / avatar

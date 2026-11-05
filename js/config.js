@@ -31,3 +31,11 @@ export const CHATS = {
     name: "Chat con Amor"
   }
 };
+
+// Conexión directa para videollamadas. No guardar claves TURN permanentes aquí.
+// Si se añade un servicio TURN, credentialsEndpoint debe devolver { iceServers }
+// con credenciales temporales y validar el token de Firebase del encabezado Bearer.
+export const videoCallConfig = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  credentialsEndpoint: ''
+};

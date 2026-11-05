@@ -5,7 +5,7 @@ import {
 import {
   GAMES, newState, applyMove, isMyTurn, gatoWinLine, cuatroFindWin, C4_ROWS, C4_COLS,
   damasLegalMoves, damasCount, RPS, RPS_TARGET, jengaLevels, jengaCanTake, jengaZone,
-  PICTIONARY_WORDS
+  PICTIONARY_WORDS, PICTIONARY_ROUND_MS, PICTIONARY_REVEAL_MS, gameTime
 } from "./games-logic.js";
 
 let ctx = null;          // { db, me(), partner(), toast, notify, sendInvite }
@@ -17,7 +17,9 @@ let busy = false;
 let wasMyTurn = null;
 let joining = false;
 
-const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks", "score", "round", "fallen", "drawer", "word", "strokes", "guesses", "phase"];
+const STATE_KEYS = ["turn", "winner", "moves", "last", "board", "chain", "picks", "score", "round", "fallen", "drawer", "word", "strokes", "guesses", "phase", "roundStartedAt", "roundEndedAt", "roundOutcome"];
+let pTimer = null;
+let pLastAttempt = 0;
 let jPick = null;        // jenga: { level, pos, center, width }
 let jAnim = null;        // requestAnimationFrame id
 let jLastAnimated = "";  // para no repetir la animación del bloque puesto
@@ -45,10 +47,12 @@ modal.innerHTML = `
       <div class="modal-titles">
         <h3 class="g-title"></h3>
       </div>
+      <button class="modal-close game-video-btn" type="button" title="Videollamada mientras juegas" aria-label="Videollamada mientras juegas">📹</button>
       <button class="modal-close game-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="g-players"></div>
     <div class="g-status"></div>
+    <div class="g-countdown hidden" role="timer" aria-label="Tiempo de la ronda"></div>
     <div class="g-board"></div>
     <div class="g-extra"></div>
     <div class="g-foot"></div>
@@ -59,6 +63,7 @@ const $m = (s) => modal.querySelector(s);
 menu.querySelector(".game-close").addEventListener("click", () => menu.classList.add("hidden"));
 menu.addEventListener("click", (e) => { if (e.target === menu) menu.classList.add("hidden"); });
 $m(".game-close").addEventListener("click", closeGame);
+$m(".game-video-btn").addEventListener("click", () => ctx?.video?.());
 
 Object.entries(GAMES).forEach(([type, g]) => {
   const b = el("button", "game-option");
@@ -123,6 +128,9 @@ export function openGame(id) {
   $m(".g-players").textContent = "";
   $m(".g-foot").innerHTML = "";
   modal.classList.remove("hidden");
+  ctx.gameView?.(true);
+  pLastAttempt = 0;
+  pTimer = setInterval(tickPictionary, 500);
 
   unsub = onSnapshot(doc(ctx.db, "games", id), (snap) => {
     if (!snap.exists()) {
@@ -142,6 +150,7 @@ export function openGame(id) {
     }
     wasMyTurn = mine;
     render();
+    tickPictionary();
   }, (err) => {
     console.error(err);
     $m(".g-status").textContent = "No se pudo cargar el juego.";
@@ -149,6 +158,9 @@ export function openGame(id) {
 }
 
 export function closeGame() {
+  clearInterval(pTimer); pTimer = null;
+  pDrawing = false;
+  ctx?.gameView?.(false);
   unsub?.(); unsub = null;
   jengaReset();
   currentId = null;
@@ -172,7 +184,7 @@ async function join() {
       const s = await tx.get(ref);
       const g = s.data();
       if (g.players[1] === null && g.players[0] !== uid) {
-        tx.update(ref, { players: [g.players[0], uid] });
+        tx.update(ref, { players: [g.players[0], uid], ...(g.type === 'pictionary' && !g.roundStartedAt ? { roundStartedAt: serverTimestamp() } : {}) });
       }
     });
   } catch (e) { console.warn(e); }
@@ -183,10 +195,13 @@ async function play(move) {
   busy = true;
   const ref = doc(ctx.db, "games", currentId);
   const uid = ctx.me().uid;
+  const expectedRound = game?.round;
+  if (game?.type === 'pictionary') move = { ...move, round: expectedRound };
   try {
     await runTransaction(ctx.db, async (tx) => {
       const s = await tx.get(ref);
       const g = s.data();
+      if (g.type === 'pictionary' && !g.players[1]) throw new Error('Jugada no válida');
       let players = g.players;
       let pi = players.indexOf(uid);
       if (pi < 0 && players[1] === null) { players = [players[0], uid]; pi = 1; }
@@ -195,16 +210,42 @@ async function play(move) {
       STATE_KEYS.forEach((k) => { if (g[k] !== undefined) st[k] = g[k]; });
       const next = applyMove(g.type, st, pi, move);
       if (!next) throw new Error("Jugada no válida");
+      if (g.type === 'pictionary') {
+        if (next.roundStartedAt !== st.roundStartedAt) next.roundStartedAt = serverTimestamp();
+        if (next.roundEndedAt !== st.roundEndedAt && next.roundEndedAt !== null) next.roundEndedAt = serverTimestamp();
+      }
       tx.update(ref, { ...next, players, updatedAt: serverTimestamp() });
     });
     selected = -1;
   } catch (e) {
     console.warn(e);
     if (!navigator.onLine) ctx.toast("Sin conexión: la jugada no se envió.");
-    else if (e.message !== "Jugada no válida") ctx.toast("No se pudo enviar la jugada.");
+    else if (e.message !== "Jugada no válida" && !['timeout', 'nextRound', 'startClock'].includes(move.type)) ctx.toast("No se pudo enviar la jugada.");
   } finally {
     busy = false;
   }
+}
+
+function tickPictionary() {
+  const timer = $m('.g-countdown');
+  const active = game?.type === 'pictionary';
+  timer.classList.toggle('hidden', !active);
+  if (!active) return;
+  const now = Date.now();
+  const started = gameTime(game.roundStartedAt);
+  const ended = gameTime(game.roundEndedAt);
+  const remaining = Math.max(0, Math.ceil((started + PICTIONARY_ROUND_MS - now) / 1000));
+  timer.textContent = !game.players[1] ? 'Esperando al otro jugador…'
+    : game.phase === 'drawing' ? (started ? `⏱️ ${remaining} s para adivinar` : 'Preparando la ronda…')
+    : game.phase === 'roundEnd' ? `Cambio de dibujante en ${Math.max(0, Math.ceil((ended + PICTIONARY_REVEAL_MS - now) / 1000))} s`
+    : 'Partida terminada';
+  timer.classList.toggle('urgent', game.phase === 'drawing' && started > 0 && remaining <= 10);
+  if (busy || !game.players[1] || now - pLastAttempt < 2000 || document.visibilityState !== 'visible') return;
+  let type;
+  if (game.phase === 'drawing' && !started) type = 'startClock';
+  else if (game.phase === 'drawing' && remaining === 0) type = 'timeout';
+  else if (game.phase === 'roundEnd' && (!ended || now >= ended + PICTIONARY_REVEAL_MS)) type = 'nextRound';
+  if (type) { pLastAttempt = now; play({ type }); }
 }
 
 // ---------- Render ----------
@@ -256,7 +297,8 @@ function render() {
   } else if (type === "pictionary") {
     const amDrawer = game.drawer === pi;
     if (game.phase === "roundEnd" || game.phase === "gameOver") {
-      st.textContent = amDrawer ? `La palabra era: "${game.word}"` : `¡Acertaste! Era "${game.word}"`;
+      st.textContent = game.roundOutcome === 'timeout' ? `Se acabó el tiempo. Era «${game.word}»`
+        : amDrawer ? `¡${ctx.partner().name} lo adivinó!` : '¡Lo adivinaste!';
     } else if (amDrawer) {
       st.textContent = `🎨 Dibuja: "${game.word}"`;
       st.classList.add("turn");
@@ -493,8 +535,9 @@ function renderJenga(board, pi) {
 }
 
 // ---------------- PICTIONARY ----------------
-function drawSingleStroke(ctx, stroke) {
-  const pts = stroke.points;
+function drawSingleStroke(ctx, stroke, w, h) {
+  const pts = stroke.canvasWidth && stroke.canvasHeight
+    ? stroke.points.map((p) => ({x:p.x*w/stroke.canvasWidth, y:p.y*h/stroke.canvasHeight})) : stroke.points;
   if (!pts || pts.length === 0) return;
   ctx.strokeStyle = stroke.color || "#000000";
   ctx.lineWidth = stroke.width || 4;
@@ -525,17 +568,19 @@ function redrawAllStrokes(ctx, w, h, strokes, activeStroke = null) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
 
-  strokes.forEach((stroke) => drawSingleStroke(ctx, stroke));
-  if (activeStroke) drawSingleStroke(ctx, activeStroke);
+  strokes.forEach((stroke) => drawSingleStroke(ctx, stroke, w, h));
+  if (activeStroke) drawSingleStroke(ctx, activeStroke, w, h);
 }
 
 function renderPictionary(board, pi) {
   const amDrawer = game.drawer === pi;
-  const canDraw = amDrawer && game.phase === "drawing";
-  const canGuess = !amDrawer && (game.phase === "drawing" || game.phase === "guessed");
+  const ready = Boolean(game.players[1] && gameTime(game.roundStartedAt));
+  const canDraw = ready && amDrawer && game.phase === "drawing";
+  const canGuess = ready && !amDrawer && game.phase === "drawing";
   const roundEnd = game.phase === "roundEnd" || game.phase === "gameOver";
 
   let container = board.querySelector(".pictionary-container");
+  const previousRound = container?.dataset.round;
   let canvas, ctx2d, width, height;
 
   if (!container) {
@@ -585,7 +630,7 @@ function renderPictionary(board, pi) {
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
       pDrawing = true;
       const pos = getPos(e);
-      currentStroke = { points: [pos], color: pColor, width: pWidth };
+      currentStroke = { points: [pos], color: pColor, width: pWidth, canvasWidth: width, canvasHeight: height };
       redrawAllStrokes(ctx2d, width, height, game.strokes || [], currentStroke);
     });
 
@@ -628,6 +673,7 @@ function renderPictionary(board, pi) {
   }
 
   canvas._canDraw = canDraw;
+  if (!canDraw) pDrawing = false;
   canvas.style.cursor = canDraw ? "crosshair" : "default";
 
   if (!pDrawing) {
@@ -635,7 +681,24 @@ function renderPictionary(board, pi) {
   }
 
   const uiBox = container.querySelector(".pictionary-ui-box");
+  const oldInput = uiBox.querySelector('input');
+  const keepDraft = previousRound === String(game.round);
+  const draft = keepDraft ? oldInput?.value || '' : '';
+  const focused = oldInput && document.activeElement === oldInput;
+  const caret = oldInput?.selectionStart;
+  container.dataset.round = game.round;
   uiBox.innerHTML = "";
+  container.querySelector('.p-round-result')?.remove();
+  if (roundEnd) {
+    const result = el('div', 'p-round-result ' + (game.roundOutcome === 'timeout' ? 'timeout' : 'success'));
+    result.setAttribute('role', 'status');
+    const icon = el('div', 'p-result-icon'); icon.textContent = game.roundOutcome === 'timeout' ? '⏳' : '🎉';
+    const title = el('strong'); title.textContent = game.roundOutcome === 'timeout' ? '¡Se acabó el tiempo!' : amDrawer ? `¡${ctx.partner().name} lo adivinó!` : '¡Lo adivinaste!';
+    const word = el('span'); word.textContent = `La palabra era «${game.word}»`;
+    const next = el('small'); next.textContent = game.winner !== null ? 'Partida terminada' : `Ahora dibuja ${game.drawer === pi ? ctx.partner().name : 'tú'}`;
+    result.append(icon, title, word, next);
+    container.querySelector('.pictionary-canvas-wrap').append(result);
+  }
 
   if (canDraw) {
     const toolbar = el("div", "pictionary-toolbar");
@@ -693,6 +756,7 @@ function renderPictionary(board, pi) {
     input.autocomplete = "off";
     input.spellcheck = false;
     input.maxLength = 50;
+    input.value = draft;
 
     const sendBtn = el("button", "g-btn");
     sendBtn.type = "button";
@@ -714,6 +778,7 @@ function renderPictionary(board, pi) {
 
     guessArea.append(input, sendBtn);
     uiBox.appendChild(guessArea);
+    if (focused) { input.focus(); input.setSelectionRange(caret, caret); }
   }
 
   if ((game.guesses || []).length > 0) {
@@ -733,14 +798,4 @@ function renderPictionary(board, pi) {
     uiBox.appendChild(reveal);
   }
 
-  if (roundEnd && !game.winner) {
-    const nextBtn = el("button", "g-btn");
-    nextBtn.type = "button";
-    nextBtn.textContent = amDrawer ? "➡️ Siguiente ronda" : "⏳ Esperando al dibujante…";
-    nextBtn.disabled = !amDrawer;
-    if (amDrawer) {
-      nextBtn.addEventListener("click", () => play({ type: "nextRound" }));
-    }
-    uiBox.appendChild(nextBtn);
-  }
 }

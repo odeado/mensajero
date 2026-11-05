@@ -1,5 +1,10 @@
 // Lógica pura de los juegos (sin Firebase ni DOM).
 // Jugador 0 = quien creó la partida (empieza). Jugador 1 = el otro.
+export const PICTIONARY_ROUND_MS = 60_000;
+export const PICTIONARY_REVEAL_MS = 4_000;
+export function gameTime(value) {
+  return typeof value?.toMillis === 'function' ? value.toMillis() : Number(value) || 0;
+}
 
 export const GAMES = {
   gato:     { name: "Gato",        icon: "❌", desc: "Tres en línea" },
@@ -26,7 +31,10 @@ export function newState(type) {
       guesses: [],
       score: [0, 0],
       round: 1,
-      phase: "drawing" // drawing, guessed, roundEnd
+      phase: "drawing",
+      roundStartedAt: null,
+      roundEndedAt: null,
+      roundOutcome: null
     };
   }
   throw new Error("Juego desconocido");
@@ -322,41 +330,47 @@ export function jengaMove(st, player, move) {
 }
 
 // ---------------- PICTIONARY ----------------
-export function pictionaryMove(st, player, move) {
-  if (st.winner !== null) return null;
-
+export function pictionaryMove(st, player, move, now = Date.now()) {
+  if (st.winner !== null || ![0, 1].includes(player)) return null;
+  if (move.round !== undefined && move.round !== st.round) return null;
   const { type } = move;
+  const started = gameTime(st.roundStartedAt);
+  const expired = started > 0 && now >= started + PICTIONARY_ROUND_MS;
+  const endRound = (score, guesses, outcome) => {
+    const over = st.round >= 5;
+    return { ...st, score, guesses, moves: st.moves + 1, roundEndedAt: now,
+      roundOutcome: outcome, phase: over ? 'gameOver' : 'roundEnd',
+      winner: over ? (score[0] > score[1] ? 0 : score[1] > score[0] ? 1 : 'draw') : null };
+  };
+  if (type === 'startClock' && st.phase === 'drawing' && !started) {
+    return { ...st, roundStartedAt: now };
+  }
+  if (type === 'timeout') {
+    return st.phase === 'drawing' && expired ? endRound([...st.score], st.guesses, 'timeout') : null;
+  }
 
   // Añadir trazo (solo el dibujante)
-  if (type === "stroke" && player === st.drawer) {
+  if (type === "stroke" && player === st.drawer && st.phase === 'drawing' && started && !expired) {
     const { stroke } = move; // { points: [{x,y},...], color, width }
     return { ...st, strokes: [...st.strokes, stroke], moves: st.moves + 1 };
   }
 
   // Adivinar (solo el adivinante)
   if (type === "guess" && player !== st.drawer) {
-    if (st.phase !== "drawing") return null;
+    if (st.phase !== "drawing" || !started || expired) return null;
     const { text } = move;
-    const guess = text.trim().toLowerCase();
-    const isCorrect = guess === st.word.toLowerCase();
-    const guesses = [...st.guesses, { player, text: guess, correct: isCorrect, at: Date.now() }];
+    const guess = String(text || '').trim().slice(0, 50);
+    if (!guess) return null;
+    const normalize = (value) => value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const isCorrect = normalize(guess) === normalize(st.word);
+    const guesses = [...st.guesses, { player, text: guess, correct: isCorrect, at: now }].slice(-20);
 
     if (isCorrect) {
       // ¡Acertó! Punto para el adivinante
       const score = [...st.score];
       score[player]++;
 
-      // Ver si se acabó el juego (5 rondas completadas)
-      const isGameOver = st.round >= 5;
-
-      return {
-        ...st,
-        guesses,
-        score,
-        winner: isGameOver ? (score[0] > score[1] ? 0 : score[1] > score[0] ? 1 : "draw") : null,
-        phase: isGameOver ? "gameOver" : "roundEnd"
-        // Mantiene st.word intacto para mostrar la palabra acertada en el resumen
-      };
+      return endRound(score, guesses, 'guessed');
     }
 
     return { ...st, guesses, moves: st.moves + 1 };
@@ -364,6 +378,7 @@ export function pictionaryMove(st, player, move) {
 
   // Pasar a siguiente ronda (solo cuando la ronda terminó)
   if (type === "nextRound" && st.phase === "roundEnd") {
+    if (gameTime(st.roundEndedAt) && now < gameTime(st.roundEndedAt) + PICTIONARY_REVEAL_MS) return null;
     const nextRound = st.round + 1;
     return {
       ...st,
@@ -373,12 +388,15 @@ export function pictionaryMove(st, player, move) {
       word: randomWord(), // Generar la palabra para la nueva ronda
       strokes: [],
       guesses: [],
-      turn: 1 - st.drawer
+      turn: 1 - st.drawer,
+      roundStartedAt: now,
+      roundEndedAt: null,
+      roundOutcome: null
     };
   }
 
   // Limpiar canvas (solo dibujante)
-  if (type === "clear" && player === st.drawer) {
+  if (type === "clear" && player === st.drawer && st.phase === 'drawing' && started && !expired) {
     return { ...st, strokes: [], moves: st.moves + 1 };
   }
 

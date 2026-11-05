@@ -1,0 +1,10 @@
+.g-countdown { text-align: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); padding: 8px; margin-bottom: 8px; border: 1px solid var(--glass-border-light); border-radius: 12px; }
+.g-countdown.urgent { color: #ffadad; background: #b32d3a22; border-color: #f0677960; }
+.p-round-result { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; text-align: center; background: #102f2af2; color: #f0fff9; border: 2px solid #51d7a6; border-radius: inherit; animation: p-result-enter .35s ease-out; }
+.p-round-result.timeout { background: #31251df2; border-color: #edb46d; color: #fff1df; }
+.p-result-icon { font-size: 52px; }
+.p-round-result strong { font-size: 23px; }
+.p-round-result span { font-size: 17px; }
+.p-round-result small { font-size: 13px; opacity: .85; }
+@keyframes p-result-enter { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .p-round-result { animation: none; } }

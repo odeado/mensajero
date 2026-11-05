@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { after, before, beforeEach, test } from 'node:test';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, query, where, orderBy, limit, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, orderBy, limit, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 let env;
 const database = (uid) => env.authenticatedContext(uid, { email: `${uid}@chat-familia.local` }).firestore();
 const message = (chatId, senderUid) => ({ chatId, senderUid, type: 'text', text: 'Hola', read: false, createdAt: serverTimestamp() });
@@ -48,4 +48,47 @@ test('partidas: el tercer usuario no puede leer, unirse ni modificar', async () 
   await assertFails(updateDoc(ref('papa'), { players: ['papa', 'amor'] }));
   await assertFails(updateDoc(ref('papa'), { chatId: 'papa_amor' }));
   await assertSucceeds(updateDoc(ref('hija'), { moves: 1 }));
+});
+
+test('Pictionary: solo acepta agotar el tiempo cuando venció en el servidor', async () => {
+  const seed = async (id, ago) => env.withSecurityRulesDisabled((context)=>setDoc(doc(context.firestore(),'games',id),{
+    type:'pictionary',chatId:'papa_hija',players:['papa','hija'],phase:'drawing',drawer:0,word:'gato',
+    round:1,score:[0,0],winner:null,strokes:[],guesses:[],moves:0,
+    roundStartedAt:Timestamp.fromMillis(Date.now()-ago),roundEndedAt:null,roundOutcome:null
+  }));
+  const end={phase:'roundEnd',roundOutcome:'timeout',roundEndedAt:serverTimestamp(),updatedAt:serverTimestamp()};
+  await seed('too-early',5000);
+  await assertFails(updateDoc(doc(database('papa'),'games','too-early'),end));
+  await seed('expired',61_000);
+  await assertSucceeds(updateDoc(doc(database('hija'),'games','expired'),end));
+  await assertFails(updateDoc(doc(database('hija'),'games','expired'),{phase:'drawing',round:2,drawer:1,word:'sol',roundStartedAt:serverTimestamp(),roundEndedAt:null,roundOutcome:null,updatedAt:serverTimestamp()}));
+  await seed('late-guess',61_000);
+  await assertFails(updateDoc(doc(database('hija'),'games','late-guess'),{...end,roundOutcome:'guessed',score:[0,1]}));
+});
+
+const offer = (extra={})=>({callId:'session-one',callerUid:'papa',callerEmail:'papa@chat-familia.local',callerDeviceId:'device-papa',targetEmail:'hija@chat-familia.local',calleeUid:null,answererId:null,offer:'sdp-offer',answer:null,status:'ringing',createdAt:serverTimestamp(),updatedAt:serverTimestamp(),...extra});
+test('videollamadas: separa chats e impide suplantar al llamante o al destinatario',async()=>{
+  const ref=(uid,chat='papa_hija')=>doc(database(uid),'calls',chat);
+  await assertSucceeds(setDoc(ref('papa'),offer()));
+  await assertFails(getDoc(ref('amor')));
+  await assertFails(setDoc(ref('amor','papa_amor'),offer()));
+  await assertFails(setDoc(ref('hija','papa_amor'),offer({callerUid:'hija',callerEmail:'hija@chat-familia.local'})));
+  await assertFails(updateDoc(ref('papa'),{calleeUid:'papa',answererId:'device',answer:'answer',status:'connecting',updatedAt:serverTimestamp()}));
+  await assertSucceeds(updateDoc(ref('hija'),{calleeUid:'hija',answererId:'device-hija',answer:'answer',status:'connecting',updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(ref('hija'),{offer:'alterado',updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(ref('amor'),{status:'ended',updatedAt:serverTimestamp()}));
+  await assertSucceeds(updateDoc(ref('papa'),{status:'active',updatedAt:serverTimestamp()}));
+  await assertFails(setDoc(ref('papa'),offer({callId:'otro-intento'})));
+  await assertSucceeds(updateDoc(ref('hija'),{status:'ended',updatedAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(ref('papa'),offer({callId:'otra-llamada'})));
+});
+test('candidatos de vídeo: solo la sesión y remitente correctos pueden escribir',async()=>{
+  await setDoc(doc(database('papa'),'calls','papa_hija'),offer());
+  const candidate={callId:'session-one',fromUid:'papa',candidate:'candidate:test',sdpMid:'0',sdpMLineIndex:0,createdAt:serverTimestamp()};
+  const ref=(uid,id)=>doc(database(uid),'calls','papa_hija','candidates',id);
+  await assertSucceeds(setDoc(ref('papa','ok'),candidate));
+  await assertFails(setDoc(ref('papa','old'),{...candidate,callId:'old-session'}));
+  await assertFails(setDoc(ref('hija','not-accepted'),{...candidate,fromUid:'hija'}));
+  await assertFails(getDoc(ref('amor','ok')));
+  await assertSucceeds(getDocs(query(collection(database('hija'),'calls','papa_hija','candidates'),where('callId','==','session-one'))));
 });

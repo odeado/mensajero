@@ -1,4 +1,4 @@
-import { firebaseConfig, FAMILY, CHATS } from "./config.js";
+import { firebaseConfig, FAMILY, CHATS, videoCallConfig } from "./config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, connectAuthEmulator
@@ -17,6 +17,7 @@ import { openCardGallery } from "./card-gallery.js";
 import { captureDestination, unreadInChat } from "./workflow.js";
 import { loadFailed, saveFailed, removeFailed } from "./send-store.js";
 import { createDictation } from "./dictation.js?v=frase-unica-20261030";
+import { initVideoCalls } from "./video-calls.js?v=20261104";
 
 // ---------- Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -161,6 +162,18 @@ let unreadHidden = 0;
 let reactTarget = null;   // id del mensaje al que se reacciona
 const bubbles = new Map(); // id -> element
 const drafts = new Map();
+const videoCalls = initVideoCalls({
+  db, config: videoCallConfig, toast, notify,
+  getToken: () => auth.currentUser.getIdToken(),
+  beforeStart: () => {
+    stopDictation();
+    if (mediaRecorder) stopRecording(false);
+    closeCameraDock();
+    currentAudio?.pause();
+    closeTools();
+  }
+});
+$("btn-video-call").addEventListener('click', () => videoCalls.start());
 
 // ---------- Avatares y nombres guardados ----------
 function cachedAvatar(email) {
@@ -395,6 +408,7 @@ function startChat() {
 }
 
 function stopChat() {
+  videoCalls.setChat(null);
   stopDictation();
   try { window.MensajeroNative?.chatHidden?.(); } catch {}
   closeTools();
@@ -441,6 +455,7 @@ function renderAvatars() {
 
 function renderNames() {
   if (!me || !partner) return;
+  videoCalls.setChat({ chatId: currentChatId, uid: me.uid, email: me.email, partnerEmail: partner.email, partnerName: partner.name });
   partnerNameEl.textContent = partner.name;
   renderMeButton();
   if (welcomeText) welcomeText.textContent = `Chat privado entre ${me.name} y ${partner.name}.`;
@@ -848,6 +863,7 @@ photoModal.addEventListener("click", (e) => {
 
 // --- Panel de cámara ---
 async function openCameraDock() {
+  if (videoCalls.active) return toast('La cámara está en la videollamada. Cuélgala para tomar una foto.');
   cameraDock.classList.remove("hidden");
   cameraDock.setAttribute("aria-hidden", "false");
   cameraBackdrop.classList.remove("hidden");
@@ -1460,6 +1476,7 @@ function cleanupRecorder() {
 }
 
 async function startRecording() {
+  if (videoCalls.active) return toast('El micrófono está en la videollamada. Cuélgala para grabar una nota.');
   if (mediaRecorder || requestingMic || !me) return;
   const target = captureDestination(me, currentChatId);
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -1691,6 +1708,7 @@ const dictation = createDictation({
 });
 function stopDictation() { dictation.stop(); }
 function startDictation() {
+  if (videoCalls.active) return toast('El micrófono está en la videollamada. Cuélgala para dictar.');
   if (!me || dictation.active) return;
   if (requestingMic) return toast("Espera a que termine el permiso del micrófono.");
   if (mediaRecorder) stopRecording(false);
@@ -1816,6 +1834,8 @@ initGames({
   destination: () => captureDestination(me, currentChatId),
   toast,
   notify,
+  video: () => videoCalls.start(),
+  gameView: (active) => videoCalls.setGameMode(active),
   sendInvite: (game, gameId, target) => sendMessage({ type: "game", game, gameId }, target)
 });
 // Botón 🎁 — abre la galería de tarjetas animadas
