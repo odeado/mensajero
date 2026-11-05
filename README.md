@@ -21,6 +21,7 @@ URL: `https://odeado.github.io/mensajero/`
 - Escribe **Papá**, **Hija** o **Amor** y la clave; la sesión queda guardada en el teléfono.
 - El botón **+** reúne Fotos, Nota de voz, Emojis, Juegos, Tarjetas, Texto grande y Álbum. La barra deja el resto del espacio para escribir.
 - En ese mismo panel están **Activar/Desactivar avisos** y **Cerrar sesión**.
+- **+ → Tema** permite elegir **Original · Cristal** (el diseño actual, predeterminado) o **Dark · Carbón** (fondos negros y grises con los mismos bordes, transparencias y acentos verdes). La elección se guarda por dispositivo y se conserva al recargar; también se actualiza entre pestañas del mismo navegador. Si el almacenamiento está bloqueado, puedes cambiar el tema durante la sesión.
 - En el APK 1.5.2, **+ → Avisos Android** permite configurar los avisos, probar su sonido y permitirlos con la pantalla apagada. El estado del contacto aparece solo en el encabezado; la franja superior se muestra únicamente si hay mensajes pendientes de otra conversación e identifica a la persona.
 - Los envíos rechazados aparecen en su conversación con **Reintentar**. Se guardan en este dispositivo mediante IndexedDB; sin almacenamiento disponible, se conservan durante la sesión. Los pendientes sin conexión siguen a cargo de la caché de Firestore.
 - Si alguien olvida su clave: Consola Firebase → Authentication → Usuarios → ⋮ → Restablecer contraseña (o borrar y crear de nuevo).
