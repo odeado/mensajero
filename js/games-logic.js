@@ -1,6 +1,6 @@
 // Lógica pura de los juegos (sin Firebase ni DOM).
 // Jugador 0 = quien creó la partida (empieza). Jugador 1 = el otro.
-export const PICTIONARY_ROUND_MS = 60_000;
+export const PICTIONARY_ROUND_MS = 120_000;
 export const PICTIONARY_REVEAL_MS = 4_000;
 export function gameTime(value) {
   return typeof value?.toMillis === 'function' ? value.toMillis() : Number(value) || 0;

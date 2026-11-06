@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app, abrir sin señal y mostrar notificaciones.
 // Estrategia "red primero": siempre carga la versión nueva si hay internet.
-const CACHE = "chat-video-controles-20261105";
+const CACHE = "chat-juegos-pantalla-completa-20261105";
 
 self.addEventListener("install", () => self.skipWaiting());
 

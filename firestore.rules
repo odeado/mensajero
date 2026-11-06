@@ -68,14 +68,14 @@ service cloud.firestore {
             && b.round == a.round && b.roundStartedAt == started
             && b.word == a.word && b.drawer == a.drawer
             && (
-              (b.phase == 'drawing' && request.time < started + duration.value(60, 's')
+              (b.phase == 'drawing' && request.time < started + duration.value(120, 's')
                 && b.score == a.score && b.winner == a.winner
                 && changed.hasOnly(['strokes', 'guesses', 'moves', 'updatedAt']))
               ||
               (b.phase in ['roundEnd', 'gameOver'] && b.roundEndedAt == request.time
                 && changed.hasOnly(['guesses', 'score', 'moves', 'roundEndedAt', 'roundOutcome', 'phase', 'winner', 'updatedAt'])
-                && ((b.roundOutcome == 'timeout' && request.time >= started + duration.value(60, 's') && b.score == a.score)
-                  || (b.roundOutcome == 'guessed' && request.time < started + duration.value(60, 's')
+                && ((b.roundOutcome == 'timeout' && request.time >= started + duration.value(120, 's') && b.score == a.score)
+                  || (b.roundOutcome == 'guessed' && request.time < started + duration.value(120, 's')
                     && a.players[a.drawer] != request.auth.uid)))
             ))
           ||

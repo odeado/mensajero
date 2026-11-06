@@ -42,3 +42,10 @@
 body.game-call-active .modal-unified:has(.game-play) { padding-top: calc(116px + env(safe-area-inset-top, 0px)); align-items: start; }
 body.game-call-active .game-play { max-height: calc(100dvh - 138px - env(safe-area-inset-top, 0px)); }
 body.game-call-active .game-video-btn { visibility: hidden; }
+
+/* En juegos, únicamente la imagen: los ajustes se hacen al volver al chat. */
+.call-dock.in-game { width: 96px; height: 72px; top: max(6px, env(safe-area-inset-top)); right: 10px; overflow: hidden; pointer-events: none; }
+.call-dock.in-game .call-grip, .call-dock.in-game .call-controls, .call-dock.in-game .call-state { display: none !important; }
+.call-dock.in-game .call-local { border-radius: 5px; right: 3px; bottom: 3px; }
+body.game-call-active .game-fullscreen { padding: 0; }
+body.game-call-active .game-fullscreen .game-play { max-height: none; padding-top: calc(84px + env(safe-area-inset-top, 0px)); }

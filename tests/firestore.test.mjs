@@ -59,10 +59,13 @@ test('Pictionary: solo acepta agotar el tiempo cuando venció en el servidor', a
   const end={phase:'roundEnd',roundOutcome:'timeout',roundEndedAt:serverTimestamp(),updatedAt:serverTimestamp()};
   await seed('too-early',5000);
   await assertFails(updateDoc(doc(database('papa'),'games','too-early'),end));
-  await seed('expired',61_000);
+  await seed('still-playing',90_000);
+  await assertFails(updateDoc(doc(database('papa'),'games','still-playing'),end));
+  await assertSucceeds(updateDoc(doc(database('papa'),'games','still-playing'),{strokes:[],moves:1,updatedAt:serverTimestamp()}));
+  await seed('expired',121_000);
   await assertSucceeds(updateDoc(doc(database('hija'),'games','expired'),end));
   await assertFails(updateDoc(doc(database('hija'),'games','expired'),{phase:'drawing',round:2,drawer:1,word:'sol',roundStartedAt:serverTimestamp(),roundEndedAt:null,roundOutcome:null,updatedAt:serverTimestamp()}));
-  await seed('late-guess',61_000);
+  await seed('late-guess',121_000);
   await assertFails(updateDoc(doc(database('hija'),'games','late-guess'),{...end,roundOutcome:'guessed',score:[0,1]}));
 });
 

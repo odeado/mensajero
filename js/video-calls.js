@@ -29,6 +29,9 @@ export function initVideoCalls(ctx) {
     const active = Boolean(session);
     document.body.classList.toggle('game-call-active', active && gameMode);
     dock.classList.toggle('in-game', gameMode);
+    $('.call-videos').tabIndex = gameMode ? -1 : 0;
+    $('.call-videos').setAttribute('role', gameMode ? 'group' : 'button');
+    $('.call-videos').setAttribute('aria-label', gameMode ? 'Vídeo de la partida' : 'Mostrar controles de videollamada');
     if (gameMode) {
       dock.classList.remove('enlarged');
       $('.call-expand').setAttribute('aria-pressed', 'false');
@@ -36,6 +39,7 @@ export function initVideoCalls(ctx) {
     }
   }
   function revealControls() {
+    if (gameMode) return;
     clearTimeout(controlsTimer);
     dock.classList.add('show-controls');
     controlsTimer = setTimeout(() => {

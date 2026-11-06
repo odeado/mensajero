@@ -8,3 +8,22 @@
 .p-round-result small { font-size: 13px; opacity: .85; }
 @keyframes p-result-enter { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .p-round-result { animation: none; } }
+
+.game-fullscreen { padding: 0; place-items: stretch; background: #0d151a; }
+.game-fullscreen .game-play { width: 100%; max-width: none; height: 100dvh; max-height: none; border-radius: 0; border: 0; padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); overflow-y: auto; box-sizing: border-box; }
+.game-fullscreen .modal-head { margin-bottom: 8px; }
+.game-fullscreen .g-players, .game-fullscreen .g-status { margin: 4px 0; font-size: 13px; }
+.game-fullscreen .g-countdown { padding: 5px; margin: 6px 0; }
+.game-fullscreen.is-pictionary .game-play { display: flex; flex-direction: column; }
+.game-fullscreen.is-pictionary .g-board { flex: 1; min-height: 240px; }
+.game-fullscreen .pictionary-container { max-width: none; height: 100%; gap: 8px; }
+.game-fullscreen .pictionary-canvas-wrap { flex: 1; min-height: 180px; aspect-ratio: auto; width: 100%; border-radius: 12px; }
+.game-fullscreen .pictionary-ui-box { flex-shrink: 0; }
+.game-fullscreen .pictionary-history { max-height: 64px; }
+.game-fullscreen .pictionary-toolbar { gap: 6px; }
+.game-fullscreen .p-color-btn { width: 36px; height: 36px; }
+.game-fullscreen .p-size-btn, .game-fullscreen .pictionary-toolbar .g-btn { min-height: 40px; }
+.game-fullscreen .pictionary-canvas { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .game-fullscreen.is-pictionary .g-board { min-height: 220px; }
+}

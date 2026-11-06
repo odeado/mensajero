@@ -25,6 +25,7 @@ let jAnim = null;        // requestAnimationFrame id
 let jLastAnimated = "";  // para no repetir la animación del bloque puesto
 let pColor = "#000000";  // pictionary: color seleccionado
 let pWidth = 4;          // pictionary: grosor seleccionado
+let pStrokeQueue = [];
 let pDrawing = false;    // pictionary: si está dibujando activamente
 
 // ---------- DOM (usando modal unificado glassmorphism) ----------
@@ -40,7 +41,7 @@ menu.innerHTML = `
     </div>
     <div class="game-list"></div>
   </div>`;
-const modal = el("div", "modal-unified hidden");
+const modal = el("div", "modal-unified game-fullscreen hidden");
 modal.innerHTML = `
   <div class="modal-sheet wide game-play">
     <div class="modal-head">
@@ -191,7 +192,11 @@ async function join() {
 }
 
 async function play(move) {
-  if (busy || !currentId) return;
+  if (!currentId) return;
+  if (busy) {
+    if (move.type === 'stroke') pStrokeQueue.push({id:currentId, round:game.round, move});
+    return;
+  }
   busy = true;
   const ref = doc(ctx.db, "games", currentId);
   const uid = ctx.me().uid;
@@ -223,6 +228,9 @@ async function play(move) {
     else if (e.message !== "Jugada no válida" && !['timeout', 'nextRound', 'startClock'].includes(move.type)) ctx.toast("No se pudo enviar la jugada.");
   } finally {
     busy = false;
+    const queued = pStrokeQueue.shift();
+    if (queued && queued.id === currentId && queued.round === game?.round && game.phase === 'drawing') play(queued.move);
+    else pStrokeQueue = [];
   }
 }
 
@@ -236,7 +244,7 @@ function tickPictionary() {
   const ended = gameTime(game.roundEndedAt);
   const remaining = Math.max(0, Math.ceil((started + PICTIONARY_ROUND_MS - now) / 1000));
   timer.textContent = !game.players[1] ? 'Esperando al otro jugador…'
-    : game.phase === 'drawing' ? (started ? `⏱️ ${remaining} s para adivinar` : 'Preparando la ronda…')
+    : game.phase === 'drawing' ? (started ? `⏱️ ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")} para adivinar` : 'Preparando la ronda…')
     : game.phase === 'roundEnd' ? `Cambio de dibujante en ${Math.max(0, Math.ceil((ended + PICTIONARY_REVEAL_MS - now) / 1000))} s`
     : 'Partida terminada';
   timer.classList.toggle('urgent', game.phase === 'drawing' && started > 0 && remaining <= 10);
@@ -257,6 +265,7 @@ function nameOf(i) {
 function render() {
   if (!game) return;
   const type = game.type;
+  modal.classList.toggle("is-pictionary", type === "pictionary");
   const info = GAMES[type];
   const pi = myIndex();
   $m(".g-title").textContent = `${info.icon} ${info.name}`;
@@ -597,14 +606,13 @@ function renderPictionary(board, pi) {
     container.appendChild(uiBox);
     board.appendChild(container);
 
-    const rect = canvasWrap.getBoundingClientRect();
-    width = Math.max(280, rect.width || 320);
-    height = Math.max(280, rect.height || 320);
+    width = 512;
+    height = 512;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
 
     ctx2d = canvas.getContext("2d");
     ctx2d.scale(dpr, dpr);
@@ -614,18 +622,26 @@ function renderPictionary(board, pi) {
     canvas._h = height;
     canvas._round = game.round;
 
-    let currentStroke = null;
+    let currentStroke = null, activePointer = null, paintFrame = null;
+    const paint = () => {
+      if (paintFrame !== null) return;
+      paintFrame = requestAnimationFrame(() => {
+        paintFrame = null;
+        if (canvas.isConnected && currentStroke && canvas._canDraw && pDrawing) redrawAllStrokes(ctx2d, width, height, game.strokes || [], currentStroke);
+      });
+    };
 
     function getPos(e) {
-      const r = canvasWrap.getBoundingClientRect();
+      const r = canvas.getBoundingClientRect();
       return {
-        x: (e.clientX - r.left) * (width / r.width),
-        y: (e.clientY - r.top) * (height / r.height)
+        x: Math.max(0, Math.min(width, (e.clientX - r.left) * (width / r.width))),
+        y: Math.max(0, Math.min(height, (e.clientY - r.top) * (height / r.height)))
       };
     }
 
     canvas.addEventListener("pointerdown", (e) => {
-      if (!canvas._canDraw) return;
+      if (!canvas._canDraw || activePointer !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+      activePointer = e.pointerId;
       e.preventDefault();
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
       pDrawing = true;
@@ -635,24 +651,26 @@ function renderPictionary(board, pi) {
     });
 
     canvas.addEventListener("pointermove", (e) => {
-      if (!pDrawing || !currentStroke) return;
+      if (!pDrawing || !currentStroke || e.pointerId !== activePointer) return;
       e.preventDefault();
-      const pos = getPos(e);
-      const pts = currentStroke.points;
-      const last = pts[pts.length - 1];
-      const dist = Math.hypot(pos.x - last.x, pos.y - last.y);
-      if (dist < 2.5) return;
-
-      pts.push(pos);
-      redrawAllStrokes(ctx2d, width, height, game.strokes || [], currentStroke);
+      for (const sample of e.getCoalescedEvents?.().length ? e.getCoalescedEvents() : [e]) {
+        const pos = getPos(sample);
+        const last = currentStroke.points.at(-1);
+        if (Math.hypot(pos.x - last.x, pos.y - last.y) >= .7) currentStroke.points.push(pos);
+      }
+      paint();
     });
 
     const endPointer = (e) => {
-      if (!pDrawing || !currentStroke) return;
+      if (e.pointerId !== activePointer) return;
+      activePointer = null;
+      if (!pDrawing || !currentStroke) { currentStroke = null; return; }
+      if (e.type === 'pointerup') currentStroke.points.push(getPos(e));
       pDrawing = false;
       try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
       const st = currentStroke;
       currentStroke = null;
+      redrawAllStrokes(ctx2d, width, height, game.strokes || [], st);
       if (st.points.length >= 1) {
         play({ type: "stroke", stroke: st });
       }
