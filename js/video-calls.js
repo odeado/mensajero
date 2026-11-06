@@ -24,9 +24,12 @@ export function initVideoCalls(ctx) {
   local.muted = true;
   let route = null, epoch = 0, unsubscribe = null, incoming = null, session = null, signalError = null;
   let incomingTimer, controlsTimer;
-  let gameMode = false;
+  let gameMode = false, gameHost = null;
   function syncLayout() {
     const active = Boolean(session);
+    const parent = gameMode && gameHost ? gameHost : document.body;
+    if (dock.parentElement !== parent) parent.appendChild(dock);
+    gameHost?.classList.toggle('hidden', !active);
     document.body.classList.toggle('game-call-active', active && gameMode);
     dock.classList.toggle('in-game', gameMode);
     $('.call-videos').tabIndex = gameMode ? -1 : 0;
@@ -368,5 +371,5 @@ export function initVideoCalls(ctx) {
   window.addEventListener('pagehide', () => { hideInvite(); close(session, true); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible' && session) close(session, true); });
   return { start, setChat, get active() { return Boolean(session); },
-    setGameMode: (active) => { gameMode = active; dock.classList.remove('show-controls'); syncLayout(); } };
+    setGameMode: (active, host) => { gameMode = active; gameHost = active ? host : null; dock.classList.remove('show-controls'); syncLayout(); } };
 }

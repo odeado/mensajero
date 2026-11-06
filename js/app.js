@@ -1835,7 +1835,7 @@ initGames({
   toast,
   notify,
   video: () => videoCalls.start(),
-  gameView: (active) => videoCalls.setGameMode(active),
+  gameView: (active, host) => videoCalls.setGameMode(active, host),
   sendInvite: (game, gameId, target) => sendMessage({ type: "game", game, gameId }, target)
 });
 // Botón 🎁 — abre la galería de tarjetas animadas

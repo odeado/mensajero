@@ -48,6 +48,7 @@ modal.innerHTML = `
       <div class="modal-titles">
         <h3 class="g-title"></h3>
       </div>
+      <div class="game-call-slot hidden"></div>
       <button class="modal-close game-video-btn" type="button" title="Videollamada mientras juegas" aria-label="Videollamada mientras juegas">📹</button>
       <button class="modal-close game-close" title="Cerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -129,7 +130,7 @@ export function openGame(id) {
   $m(".g-players").textContent = "";
   $m(".g-foot").innerHTML = "";
   modal.classList.remove("hidden");
-  ctx.gameView?.(true);
+  ctx.gameView?.(true, $m(".game-call-slot"));
   pLastAttempt = 0;
   pTimer = setInterval(tickPictionary, 500);
 
