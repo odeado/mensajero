@@ -81,6 +81,11 @@ const lightbox = $("lightbox-modal");
 const lightboxContainer = $("lightbox-container");
 const lightboxImg = $("lightbox-img");
 const lightboxDownload = $("lightbox-download");
+const lightboxHeader = $("lightbox-header");
+const lightboxTitle = $("lightbox-title");
+const lightboxDate = $("lightbox-date");
+const lightboxCounter = $("lightbox-counter");
+const lightboxClose = $("lightbox-close");
 const toastEl = $("toast");
 const reactionBar = $("reaction-bar");
 const profileModal = $("profile-modal");
@@ -2037,10 +2042,14 @@ function startLiveSlideshow() {
       imgs.forEach((im, i) => im.classList.toggle("on", i === next));
       // Si es el lightbox, actualizar el enlace de descarga
       if (box.closest("#lightbox-container")) {
+        if (currentScale > 1.05 || isPinching || isPanning || isDraggingDown) return;
         lightboxIndex = next;
         if (lightboxDownload) {
           lightboxDownload.href = lightboxList[next];
           lightboxDownload.dataset.src = lightboxList[next];
+        }
+        if (lightboxCounter && lightboxList.length > 1) {
+          lightboxCounter.textContent = `${lightboxIndex + 1} de ${lightboxList.length}`;
         }
       }
     });
@@ -2515,16 +2524,106 @@ window.addEventListener("online", updateNet);
 window.addEventListener("offline", updateNet);
 updateNet();
 
-// ---------- Visor de fotos (con efectos live: paneo/fade) ----------
+// ---------- Visor de fotos pantalla completa estilo WhatsApp ----------
 let lightboxList = [];
 let lightboxIndex = 0;
-let lightboxCurrentMotion = "pan"; // para navegación con teclado
+let lightboxCurrentMotion = "pan";
+
+// Variables de estado para gestos táctiles (zoom, paneo y deslizamiento)
+let currentScale = 1;
+let currentX = 0;
+let currentY = 0;
+let startScale = 1;
+let startDistance = 0;
+let startTouchX = 0;
+let startTouchY = 0;
+let startX = 0;
+let startY = 0;
+let isPinching = false;
+let isPanning = false;
+let isDraggingDown = false;
+let dragDownStartY = 0;
+let swipeStartX = 0;
+let swipeStartY = 0;
+let lastTapTime = 0;
+let lastTapX = 0;
+let lastTapY = 0;
+let singleTapTimer = null;
+let isMouseDragging = false;
+let mouseStartX = 0;
+let mouseStartY = 0;
+
+function applyTransform(animated = false) {
+  const stage = lightboxContainer.querySelector(".lightbox-stage");
+  if (!stage) return;
+  if (animated) {
+    stage.classList.remove("dragging");
+  } else {
+    stage.classList.add("dragging");
+  }
+  stage.style.transform = `translate3d(${currentX}px, ${currentY}px, 0px) scale(${currentScale})`;
+}
+
+function clampPan() {
+  if (currentScale <= 1.02) {
+    currentX = 0;
+    currentY = 0;
+    return;
+  }
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const maxPanX = Math.max(0, (vw * (currentScale - 1)) / 2);
+  const maxPanY = Math.max(0, (vh * (currentScale - 1)) / 2);
+  currentX = Math.max(-maxPanX, Math.min(maxPanX, currentX));
+  currentY = Math.max(-maxPanY, Math.min(maxPanY, currentY));
+}
+
+function resetLightboxZoom(animated = false) {
+  currentScale = 1;
+  currentX = 0;
+  currentY = 0;
+  isPinching = false;
+  isPanning = false;
+  isDraggingDown = false;
+  applyTransform(animated);
+}
+
+function zoomTo(targetScale, clientX, clientY, animated = true) {
+  const stage = lightboxContainer.querySelector(".lightbox-stage");
+  if (!stage) return;
+  if (targetScale <= 1.05) {
+    resetLightboxZoom(animated);
+    return;
+  }
+  const prevScale = currentScale;
+  currentScale = Math.min(targetScale, 4.5);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const offsetX = (clientX || vw / 2) - vw / 2;
+  const offsetY = (clientY || vh / 2) - vh / 2;
+  currentX = -offsetX * (currentScale / prevScale - 1);
+  currentY = -offsetY * (currentScale / prevScale - 1);
+  clampPan();
+  applyTransform(animated);
+}
+
+function updateActiveLightboxPhoto() {
+  if (lightboxDownload) {
+    lightboxDownload.href = lightboxList[lightboxIndex];
+    lightboxDownload.dataset.src = lightboxList[lightboxIndex];
+  }
+  if (lightboxCounter && lightboxList.length > 1) {
+    lightboxCounter.textContent = `${lightboxIndex + 1} de ${lightboxList.length}`;
+  }
+  const box = lightboxContainer.querySelector(".live-photo");
+  if (box) {
+    box.dataset.index = String(lightboxIndex);
+    box.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
+  }
+  resetLightboxZoom(true);
+}
 
 function openLightbox(m, src, list) {
-  // m = mensaje completo (con motion, frame, createdAt)
-  // src = imagen principal a mostrar
-  // list = array de todas las imágenes (para slideshow)
-
   const photos = Array.isArray(list) && list.length ? list : (src ? [src] : []);
   if (!photos.length) return;
 
@@ -2535,20 +2634,33 @@ function openLightbox(m, src, list) {
     lightboxDownload.dataset.src = photos[lightboxIndex];
   }
 
-  // Determinar efecto de movimiento
+  // Título y fecha en barra superior estilo WhatsApp
+  const senderName = m?.senderUid === me?.uid ? "Tú" : (partner?.name || "Foto");
+  if (lightboxTitle) lightboxTitle.textContent = senderName;
+  if (lightboxDate) lightboxDate.textContent = m?.createdAt ? postalStamp(m.createdAt) : "";
+
+  if (lightboxCounter) {
+    if (photos.length > 1) {
+      lightboxCounter.classList.remove("hidden");
+      lightboxCounter.textContent = `${lightboxIndex + 1} de ${photos.length}`;
+    } else {
+      lightboxCounter.classList.add("hidden");
+    }
+  }
+
+  // Efecto live si corresponde
   const motion = (m && m.motion === "fade") ? "fade" : "pan";
-  const framed = !!(m && m.frame);
   lightboxCurrentMotion = motion;
 
-  // Limpiar contenedor y crear live-photo
+  // Limpiar viewport y construir stage zoomable
   lightboxContainer.innerHTML = "";
+  const stage = document.createElement("div");
+  stage.className = "lightbox-stage";
+
   const box = document.createElement("div");
-  box.className = "live-photo" + (framed ? " framed" : "") + (photos.length > 1 ? " slideshow" : "");
+  box.className = "live-photo" + (photos.length > 1 ? " slideshow" : "");
   box.dataset.motion = motion;
   box.dataset.index = String(lightboxIndex);
-
-  // Alternar dirección del paneo para variar
-  if (Math.random() > 0.5) box.classList.add("rev");
 
   const win = document.createElement("div");
   win.className = "live-window";
@@ -2563,34 +2675,226 @@ function openLightbox(m, src, list) {
   });
 
   box.appendChild(win);
+  stage.appendChild(box);
+  lightboxContainer.appendChild(stage);
 
-  if (framed && m?.createdAt?.toDate) {
-    const date = document.createElement("div");
-    date.className = "live-date";
-    date.textContent = postalStamp(m.createdAt);
-    box.appendChild(date);
-  }
+  // Reiniciar estado
+  resetLightboxZoom(false);
+  lightbox.style.backgroundColor = "";
+  if (lightboxHeader) lightboxHeader.classList.remove("ui-hidden");
+  if (lightboxCounter) lightboxCounter.classList.remove("ui-hidden");
 
-  lightboxContainer.appendChild(box);
   lightbox.classList.remove("hidden");
 
-  // Para slideshow: habilitar click en la imagen para pasar a la siguiente
   if (photos.length > 1) {
     startLiveSlideshow();
-    // El slideshow automático ya funciona via startLiveSlideshow()
-    // Pero también permitimos navegación manual click/tap
-    box.addEventListener("click", (e) => {
-      if (e.target.closest(".live-date")) return;
-      lightboxIndex = (lightboxIndex + 1) % photos.length;
-      box.dataset.index = String(lightboxIndex);
-      if (lightboxDownload) {
-        lightboxDownload.href = photos[lightboxIndex];
-        lightboxDownload.dataset.src = photos[lightboxIndex];
-      }
-      win.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
-    });
   }
 }
+
+// Gestos táctiles: Pinch to zoom, arrastre y doble toque
+lightboxContainer.addEventListener("touchstart", (e) => {
+  if (singleTapTimer) {
+    clearTimeout(singleTapTimer);
+    singleTapTimer = null;
+  }
+  if (e.touches.length === 2) {
+    isPinching = true;
+    isPanning = false;
+    isDraggingDown = false;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    startDistance = Math.hypot(dx, dy);
+    startScale = currentScale;
+    applyTransform(false);
+  } else if (e.touches.length === 1) {
+    isPinching = false;
+    startTouchX = e.touches[0].clientX;
+    startTouchY = e.touches[0].clientY;
+    swipeStartX = startTouchX;
+    swipeStartY = startTouchY;
+
+    if (currentScale > 1.05) {
+      isPanning = true;
+      startX = currentX;
+      startY = currentY;
+      applyTransform(false);
+    } else {
+      isPanning = false;
+      isDraggingDown = false;
+      dragDownStartY = startTouchY;
+    }
+  }
+}, { passive: false });
+
+lightboxContainer.addEventListener("touchmove", (e) => {
+  if (isPinching && e.touches.length === 2) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    if (startDistance > 0) {
+      const scaleFactor = dist / startDistance;
+      currentScale = Math.max(0.85, Math.min(startScale * scaleFactor, 4.8));
+      clampPan();
+      applyTransform(false);
+    }
+  } else if (e.touches.length === 1) {
+    const deltaX = e.touches[0].clientX - startTouchX;
+    const deltaY = e.touches[0].clientY - startTouchY;
+
+    if (currentScale > 1.05) {
+      e.preventDefault();
+      currentX = startX + deltaX;
+      currentY = startY + deltaY;
+      clampPan();
+      applyTransform(false);
+    } else {
+      // Si arrastra verticalmente hacia abajo en 1x: deslizar para cerrar
+      if (deltaY > 12 && Math.abs(deltaY) > Math.abs(deltaX) * 1.4) {
+        e.preventDefault();
+        isDraggingDown = true;
+        currentY = deltaY;
+        const dragScale = Math.max(0.72, 1 - deltaY / 1200);
+        const stage = lightboxContainer.querySelector(".lightbox-stage");
+        if (stage) {
+          stage.style.transform = `translate3d(0px, ${currentY}px, 0px) scale(${dragScale})`;
+        }
+        lightbox.style.backgroundColor = `rgba(0, 0, 0, ${Math.max(0.2, 1 - deltaY / 380)})`;
+      }
+    }
+  }
+}, { passive: false });
+
+lightboxContainer.addEventListener("touchend", (e) => {
+  if (isPinching) {
+    if (e.touches.length < 2) {
+      isPinching = false;
+      if (currentScale < 1.05) {
+        resetLightboxZoom(true);
+      } else {
+        currentScale = Math.min(currentScale, 4.5);
+        clampPan();
+        applyTransform(true);
+      }
+    }
+    return;
+  }
+
+  if (isDraggingDown) {
+    isDraggingDown = false;
+    lightbox.style.backgroundColor = "";
+    if (currentY > 95) {
+      lightbox.classList.add("hidden");
+      resetLightboxZoom(false);
+      return;
+    } else {
+      currentY = 0;
+      applyTransform(true);
+      return;
+    }
+  }
+
+  if (isPanning) {
+    isPanning = false;
+    clampPan();
+    applyTransform(true);
+    return;
+  }
+
+  // Toques simples y doble toque
+  if (e.changedTouches.length === 1) {
+    const touch = e.changedTouches[0];
+    const distX = Math.abs(touch.clientX - swipeStartX);
+    const distY = Math.abs(touch.clientY - swipeStartY);
+
+    // Swipe horizontal en 1x para avanzar fotos si es slideshow
+    if (currentScale <= 1.05 && distX > 55 && distX > distY * 1.6 && lightboxList.length > 1) {
+      if (touch.clientX < swipeStartX) {
+        lightboxIndex = (lightboxIndex + 1) % lightboxList.length;
+      } else {
+        lightboxIndex = (lightboxIndex - 1 + lightboxList.length) % lightboxList.length;
+      }
+      updateActiveLightboxPhoto();
+      return;
+    }
+
+    // Comprobar doble toque
+    const now = Date.now();
+    const tapDistance = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
+    if (now - lastTapTime < 320 && tapDistance < 40) {
+      lastTapTime = 0;
+      if (singleTapTimer) {
+        clearTimeout(singleTapTimer);
+        singleTapTimer = null;
+      }
+      if (currentScale > 1.2) {
+        resetLightboxZoom(true);
+      } else {
+        zoomTo(2.5, touch.clientX, touch.clientY, true);
+      }
+      return;
+    }
+
+    lastTapTime = now;
+    lastTapX = touch.clientX;
+    lastTapY = touch.clientY;
+
+    // Toque simple: alternar visibilidad de controles si casi no hubo movimiento
+    if (distX < 12 && distY < 12) {
+      singleTapTimer = setTimeout(() => {
+        singleTapTimer = null;
+        if (lightboxHeader) lightboxHeader.classList.toggle("ui-hidden");
+        if (lightboxCounter) lightboxCounter.classList.toggle("ui-hidden");
+      }, 300);
+    }
+  }
+});
+
+// Soporte desktop: Rueda de mouse para zoom
+lightboxContainer.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 1.25 : 0.8;
+  const target = Math.max(1, Math.min(currentScale * delta, 4.5));
+  zoomTo(target, e.clientX, e.clientY, true);
+}, { passive: false });
+
+// Soporte desktop: Doble clic para zoom
+lightboxContainer.addEventListener("dblclick", (e) => {
+  if (currentScale > 1.2) {
+    resetLightboxZoom(true);
+  } else {
+    zoomTo(2.5, e.clientX, e.clientY, true);
+  }
+});
+
+// Soporte desktop: Arrastre con mouse cuando está en zoom
+lightboxContainer.addEventListener("mousedown", (e) => {
+  if (currentScale > 1.05 && e.button === 0) {
+    isMouseDragging = true;
+    mouseStartX = e.clientX;
+    mouseStartY = e.clientY;
+    startX = currentX;
+    startY = currentY;
+    applyTransform(false);
+  }
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (isMouseDragging) {
+    currentX = startX + (e.clientX - mouseStartX);
+    currentY = startY + (e.clientY - mouseStartY);
+    clampPan();
+    applyTransform(false);
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  if (isMouseDragging) {
+    isMouseDragging = false;
+    clampPan();
+    applyTransform(true);
+  }
+});
 
 // Descargar foto activa (soporta Android WebView nativo y navegadores web)
 async function downloadCurrentPhoto() {
@@ -2600,7 +2904,6 @@ async function downloadCurrentPhoto() {
   const ext = src.includes("image/png") ? "png" : (src.includes("image/webp") ? "webp" : "jpg");
   const filename = "foto_" + Date.now() + "." + ext;
 
-  // 1. Si estamos dentro de la app Android nativa con puente MensajeroNative
   if (window.MensajeroNative && typeof window.MensajeroNative.downloadImage === "function") {
     try {
       window.MensajeroNative.downloadImage(src, filename);
@@ -2611,7 +2914,6 @@ async function downloadCurrentPhoto() {
     }
   }
 
-  // 2. Navegador web (PC o celular): convertir base64 o URL a Blob y forzar descarga
   try {
     let blob;
     if (src.startsWith("data:")) {
@@ -2652,32 +2954,36 @@ async function downloadCurrentPhoto() {
 if (lightboxDownload) {
   lightboxDownload.addEventListener("click", (e) => {
     e.preventDefault();
+    e.stopPropagation();
     downloadCurrentPhoto();
   });
 }
 
-// Cerrar lightbox
-$("lightbox-close").addEventListener("click", () => lightbox.classList.add("hidden"));
-lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.add("hidden"); });
+function closeLightboxModal() {
+  lightbox.classList.add("hidden");
+  resetLightboxZoom(false);
+}
 
-// Navegación con teclado (flechas)
+// Cerrar visor
+if (lightboxClose) {
+  lightboxClose.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeLightboxModal();
+  });
+}
+
+// Navegación con teclado (flechas y escape)
 document.addEventListener("keydown", (e) => {
   if (lightbox.classList.contains("hidden")) return;
-  if (e.key === "Escape") { lightbox.classList.add("hidden"); return; }
+  if (e.key === "Escape") { closeLightboxModal(); return; }
   if (lightboxList.length < 2) return;
   if (e.key === "ArrowRight" || e.key === "ArrowDown") {
     lightboxIndex = (lightboxIndex + 1) % lightboxList.length;
+    updateActiveLightboxPhoto();
   } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
     lightboxIndex = (lightboxIndex - 1 + lightboxList.length) % lightboxList.length;
-  } else return;
-  const box = lightboxContainer.querySelector(".live-photo");
-  if (box) {
-    box.dataset.index = String(lightboxIndex);
-    if (lightboxDownload) {
-      lightboxDownload.href = lightboxList[lightboxIndex];
-      lightboxDownload.dataset.src = lightboxList[lightboxIndex];
-    }
-    box.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
+    updateActiveLightboxPhoto();
   }
 });
 

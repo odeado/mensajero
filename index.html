@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="css/fun.css">
   <link rel="stylesheet" href="css/msncard.css?v=msncard-alpha-20261025-r2">
   <link rel="stylesheet" href="css/card-gallery.css">
-  <link rel="stylesheet" href="css/photo.css?v=camara-dock-20261026">
+  <link rel="stylesheet" href="css/photo.css?v=fullscreen-lightbox-20261109">
   <link rel="stylesheet" href="css/textart.css?v=texto-grande-20261026">
   <link rel="stylesheet" href="css/features.css?v=foto-viva-20261028">
   <link rel="stylesheet" href="css/composer.css?v=dictado-20261030">
@@ -410,19 +410,30 @@
     </div>
   </div>
 
-  <!-- Visor de fotos (con efectos live: paneo/fade) -->
-  <div id="lightbox-modal" class="modal-unified high-z hidden">
-    <div class="modal-sheet full" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; max-height: 100vh; max-width: 100vw;">
-      <button class="modal-close" id="lightbox-close" style="position: fixed; top: 20px; right: 20px; z-index: 10;" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
-      <div id="lightbox-container" class="lightbox-container" style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 20px;"></div>
-      <button type="button" id="lightbox-download" class="modal-btn primary" style="margin-bottom: 24px; max-width: 300px; cursor: pointer;">
-        <i class="fa-solid fa-download"></i> Descargar foto
+  <!-- Visor de fotos pantalla completa estilo WhatsApp con zoom táctil y controles integrados -->
+  <div id="lightbox-modal" class="lightbox-fullscreen hidden" role="dialog" aria-modal="true" aria-label="Visor de fotos">
+    <header class="lightbox-header" id="lightbox-header">
+      <button type="button" class="lightbox-top-btn" id="lightbox-close" aria-label="Cerrar visor">
+        <i class="fa-solid fa-arrow-left"></i>
       </button>
-    </div>
+      <div class="lightbox-meta">
+        <span id="lightbox-title" class="lightbox-title">Foto</span>
+        <span id="lightbox-date" class="lightbox-date"></span>
+      </div>
+      <div class="lightbox-actions">
+        <button type="button" class="lightbox-top-btn" id="lightbox-download" title="Descargar foto" aria-label="Descargar foto">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </header>
+
+    <div id="lightbox-container" class="lightbox-viewport"></div>
+
+    <div id="lightbox-counter" class="lightbox-counter hidden"></div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=media-download-20261109"></script>
+  <script type="module" src="js/app.js?v=fullscreen-lightbox-20261109"></script>
 </body>
 </html>
