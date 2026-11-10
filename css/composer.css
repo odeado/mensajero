@@ -130,6 +130,7 @@
 
 /* === Media button (unificado Videollamada + Fotos) === */
 .media-btn {
+  position: relative; /* para posicionar submenú absoluto */
   display: flex !important;
   flex-direction: row !important;
   align-items: center;
