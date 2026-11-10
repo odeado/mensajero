@@ -176,7 +176,6 @@ const videoCalls = initVideoCalls({
     closeTools();
   }
 });
-$("btn-video-call").addEventListener('click', () => videoCalls.start());
 
 // ---------- Avatares y nombres guardados ----------
 function cachedAvatar(email) {

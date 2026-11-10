@@ -123,6 +123,17 @@
           <span class="media-icon">📎</span>
           <span class="media-label">Media</span>
           <i class="fa-solid fa-chevron-down media-chevron" aria-hidden="true"></i>
+          <!-- Submenú Media (Videollamada + Fotos) - HIJO del botón para positioning absoluto -->
+          <div id="media-submenu" class="media-submenu hidden" role="menu" aria-label="Opciones de media">
+            <button type="button" role="menuitem" id="media-video-call" class="media-submenu-item">
+              <span class="media-submenu-icon">📹</span>
+              <span>Videollamada</span>
+            </button>
+            <button type="button" role="menuitem" id="media-photos" class="media-submenu-item">
+              <span class="media-submenu-icon">📷</span>
+              <span>Fotos</span>
+            </button>
+          </div>
         </button>
         <button type="button" id="mic-btn"><span>🎙️</span>Nota de voz</button>
         <button type="button" id="btn-dictate" aria-pressed="false"><span>🗣️</span>Dictado</button>
@@ -131,18 +142,6 @@
         <button type="button" id="btn-send-card"><span>🎁</span>Tarjetas</button>
         <button type="button" id="btn-textart"><span>✨</span>Texto grande</button>
         <button type="button" id="tools-album"><span>🖼️</span>Álbum</button>
-      </div>
-
-      <!-- Submenú Media (Videollamada + Fotos) -->
-      <div id="media-submenu" class="media-submenu hidden" role="menu" aria-label="Opciones de media">
-        <button type="button" role="menuitem" id="media-video-call" class="media-submenu-item">
-          <span class="media-submenu-icon">📹</span>
-          <span>Videollamada</span>
-        </button>
-        <button type="button" role="menuitem" id="media-photos" class="media-submenu-item">
-          <span class="media-submenu-icon">📷</span>
-          <span>Fotos</span>
-        </button>
       </div>
       <label class="theme-choice" for="theme-select">
         <span>🎨 Tema</span>
