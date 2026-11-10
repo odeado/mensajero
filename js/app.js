@@ -474,6 +474,7 @@ function subscribeMessages() {
   bubbles.clear();
   list.innerHTML = "";
   let first = true;
+  let lastMsgDate = null; // para separadores de día
 
   // El servidor filtra antes de limitar; cada conversación tiene su propio historial.
   const q = query(
@@ -511,6 +512,18 @@ function subscribeMessages() {
       if (ch.type === "added") {
         const el = buildBubble(id, data, pending);
         bubbles.set(id, el);
+
+        // Insertar separador de día si cambió la fecha
+        const msgDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+        const dateKey = msgDate.toDateString();
+        if (lastMsgDate !== dateKey) {
+          lastMsgDate = dateKey;
+          const divider = document.createElement("div");
+          divider.className = "msg-day-divider";
+          divider.textContent = formatDayDivider(msgDate);
+          list.appendChild(divider);
+        }
+
         list.appendChild(el);
         if (!first && data.senderUid === me.uid) ownNew = true;
         if (!first && data.senderUid !== me.uid && !ch.doc.metadata.fromCache) incoming(data);
@@ -2159,6 +2172,17 @@ function formatTime(d) {
   const hm = d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
   if (d.toDateString() === now.toDateString()) return hm;
   return `${d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" })} ${hm}`;
+}
+
+function formatDayDivider(d) {
+  const now = new Date();
+  const today = now.toDateString();
+  const yesterday = new Date(now.getTime() - 86400000).toDateString();
+  const msgDate = d.toDateString();
+
+  if (msgDate === today) return "Hoy";
+  if (msgDate === yesterday) return "Ayer";
+  return d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
 }
 
 // ---------- Reacciones ----------

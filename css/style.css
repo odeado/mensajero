@@ -377,6 +377,23 @@ body {
   gap: 10px;
 }
 
+.msg-day-divider {
+  align-self: center;
+  padding: 8px 16px;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--accent-green);
+  background: linear-gradient(135deg, rgba(0, 168, 132, 0.18), rgba(0, 168, 132, 0.08));
+  border: 1px solid rgba(0, 168, 132, 0.35);
+  border-radius: 14px;
+  text-transform: capitalize;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 4px 16px rgba(0, 168, 132, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
 /* Message Bubbles */
 .message-bubble {
   max-width: 82%;
