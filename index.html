@@ -128,11 +128,17 @@
           <div id="media-submenu" class="media-submenu hidden" role="menu" aria-label="Opciones de media">
             <button type="button" role="menuitem" id="media-video-call" class="media-submenu-item">
               <span class="media-submenu-icon">📹</span>
-              <span>Videollamada</span>
+              <span class="media-submenu-text">
+                <strong>Videollamada</strong>
+                <small>Llamar con video</small>
+              </span>
             </button>
             <button type="button" role="menuitem" id="media-photos" class="media-submenu-item">
               <span class="media-submenu-icon">📷</span>
-              <span>Fotos</span>
+              <span class="media-submenu-text">
+                <strong>Fotos</strong>
+                <small>Cámara o galería</small>
+              </span>
             </button>
           </div>
         </div>
@@ -409,14 +415,14 @@
     <div class="modal-sheet full" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; max-height: 100vh; max-width: 100vw;">
       <button class="modal-close" id="lightbox-close" style="position: fixed; top: 20px; right: 20px; z-index: 10;" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
       <div id="lightbox-container" class="lightbox-container" style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 20px;"></div>
-      <a id="lightbox-download" href="#" download="foto.jpg" class="modal-btn primary" style="margin-bottom: 24px; max-width: 300px;">
+      <button type="button" id="lightbox-download" class="modal-btn primary" style="margin-bottom: 24px; max-width: 300px; cursor: pointer;">
         <i class="fa-solid fa-download"></i> Descargar foto
-      </a>
+      </button>
     </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=camara-dentro-juego-20261106"></script>
+  <script type="module" src="js/app.js?v=media-download-20261109"></script>
 </body>
 </html>

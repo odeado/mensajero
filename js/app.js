@@ -2037,8 +2037,11 @@ function startLiveSlideshow() {
       imgs.forEach((im, i) => im.classList.toggle("on", i === next));
       // Si es el lightbox, actualizar el enlace de descarga
       if (box.closest("#lightbox-container")) {
-        lightboxDownload.href = lightboxList[next];
         lightboxIndex = next;
+        if (lightboxDownload) {
+          lightboxDownload.href = lightboxList[next];
+          lightboxDownload.dataset.src = lightboxList[next];
+        }
       }
     });
   }, LIVE_SLIDE_MS);
@@ -2527,7 +2530,10 @@ function openLightbox(m, src, list) {
 
   lightboxList = photos;
   lightboxIndex = Math.max(0, photos.indexOf(src));
-  lightboxDownload.href = photos[lightboxIndex];
+  if (lightboxDownload) {
+    lightboxDownload.href = photos[lightboxIndex];
+    lightboxDownload.dataset.src = photos[lightboxIndex];
+  }
 
   // Determinar efecto de movimiento
   const motion = (m && m.motion === "fade") ? "fade" : "pan";
@@ -2577,10 +2583,77 @@ function openLightbox(m, src, list) {
       if (e.target.closest(".live-date")) return;
       lightboxIndex = (lightboxIndex + 1) % photos.length;
       box.dataset.index = String(lightboxIndex);
-      lightboxDownload.href = photos[lightboxIndex];
+      if (lightboxDownload) {
+        lightboxDownload.href = photos[lightboxIndex];
+        lightboxDownload.dataset.src = photos[lightboxIndex];
+      }
       win.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
     });
   }
+}
+
+// Descargar foto activa (soporta Android WebView nativo y navegadores web)
+async function downloadCurrentPhoto() {
+  const src = (lightboxList && lightboxList[lightboxIndex]) || lightboxDownload?.dataset?.src || lightboxDownload?.href;
+  if (!src) return;
+
+  const ext = src.includes("image/png") ? "png" : (src.includes("image/webp") ? "webp" : "jpg");
+  const filename = "foto_" + Date.now() + "." + ext;
+
+  // 1. Si estamos dentro de la app Android nativa con puente MensajeroNative
+  if (window.MensajeroNative && typeof window.MensajeroNative.downloadImage === "function") {
+    try {
+      window.MensajeroNative.downloadImage(src, filename);
+      toast("Guardando foto en tu Galería… 📸");
+      return;
+    } catch (err) {
+      console.warn("Fallo MensajeroNative.downloadImage:", err);
+    }
+  }
+
+  // 2. Navegador web (PC o celular): convertir base64 o URL a Blob y forzar descarga
+  try {
+    let blob;
+    if (src.startsWith("data:")) {
+      const parts = src.split(",");
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+      const byteCharacters = atob(parts[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      blob = new Blob([byteArray], { type: mime });
+    } else {
+      const res = await fetch(src);
+      blob = await res.blob();
+    }
+
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    toast("Foto descargada 📸");
+  } catch (err) {
+    console.error("Error al descargar foto:", err);
+    try {
+      window.open(src, "_blank");
+    } catch (_) {
+      toast("No se pudo descargar la foto");
+    }
+  }
+}
+
+if (lightboxDownload) {
+  lightboxDownload.addEventListener("click", (e) => {
+    e.preventDefault();
+    downloadCurrentPhoto();
+  });
 }
 
 // Cerrar lightbox
@@ -2600,7 +2673,10 @@ document.addEventListener("keydown", (e) => {
   const box = lightboxContainer.querySelector(".live-photo");
   if (box) {
     box.dataset.index = String(lightboxIndex);
-    lightboxDownload.href = lightboxList[lightboxIndex];
+    if (lightboxDownload) {
+      lightboxDownload.href = lightboxList[lightboxIndex];
+      lightboxDownload.dataset.src = lightboxList[lightboxIndex];
+    }
     box.querySelectorAll(".live-img").forEach((im, i) => im.classList.toggle("on", i === lightboxIndex));
   }
 });

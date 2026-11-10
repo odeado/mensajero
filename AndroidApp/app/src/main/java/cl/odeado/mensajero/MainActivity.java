@@ -2,18 +2,22 @@ package cl.odeado.mensajero;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
+import android.util.Base64;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -37,6 +41,8 @@ import androidx.core.content.FileProvider;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -307,6 +313,109 @@ public class MainActivity extends AppCompatActivity {
                 ChatMonitorService.clearPending(MainActivity.this, chatId);
             }
         }
+
+        @JavascriptInterface
+        public void downloadImage(String dataUri, String filename) {
+            saveImageToGallery(dataUri, filename);
+        }
+    }
+
+    private void saveImageToGallery(String dataUri, String filename) {
+        if (dataUri == null || dataUri.trim().isEmpty()) return;
+        new Thread(() -> {
+            try {
+                byte[] imageBytes = null;
+                String mimeType = "image/jpeg";
+
+                if (dataUri.startsWith("data:")) {
+                    int commaIdx = dataUri.indexOf(',');
+                    if (commaIdx != -1) {
+                        String header = dataUri.substring(5, commaIdx);
+                        if (header.contains("image/png")) mimeType = "image/png";
+                        else if (header.contains("image/webp")) mimeType = "image/webp";
+                        String cleanBase64 = dataUri.substring(commaIdx + 1);
+                        imageBytes = Base64.decode(cleanBase64, Base64.DEFAULT);
+                    }
+                } else if (dataUri.startsWith("http://") || dataUri.startsWith("https://")) {
+                    java.net.URL url = new java.net.URL(dataUri);
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(10000);
+                    conn.setReadTimeout(15000);
+                    String contentType = conn.getContentType();
+                    if (contentType != null) {
+                        if (contentType.contains("image/png")) mimeType = "image/png";
+                        else if (contentType.contains("image/webp")) mimeType = "image/webp";
+                    }
+                    try (java.io.InputStream in = conn.getInputStream();
+                         java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[8192];
+                        int r;
+                        while ((r = in.read(buffer)) != -1) {
+                            bos.write(buffer, 0, r);
+                        }
+                        imageBytes = bos.toByteArray();
+                    }
+                } else {
+                    imageBytes = Base64.decode(dataUri, Base64.DEFAULT);
+                }
+
+                if (imageBytes == null || imageBytes.length == 0) {
+                    throw new Exception("Datos de imagen vacíos");
+                }
+
+                String ext = mimeType.contains("png") ? ".png" : (mimeType.contains("webp") ? ".webp" : ".jpg");
+                String name = (filename != null && !filename.trim().isEmpty()) ? filename.trim() : ("foto_" + System.currentTimeMillis() + ext);
+                if (!name.endsWith(ext)) {
+                    name += ext;
+                }
+
+                boolean ok = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues cv = new ContentValues();
+                    cv.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+                    cv.put(MediaStore.Images.Media.MIME_TYPE, mimeType);
+                    cv.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + File.separator + "Mensajero");
+                    cv.put(MediaStore.Images.Media.IS_PENDING, 1);
+
+                    Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+                    if (uri != null) {
+                        try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                            if (out != null) {
+                                out.write(imageBytes);
+                                out.flush();
+                                ok = true;
+                            }
+                        }
+                        cv.clear();
+                        cv.put(MediaStore.Images.Media.IS_PENDING, 0);
+                        getContentResolver().update(uri, cv, null, null);
+                    }
+                } else {
+                    File picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+                    File appDir = new File(picturesDir, "Mensajero");
+                    if (!appDir.exists()) appDir.mkdirs();
+                    File file = new File(appDir, name);
+                    try (FileOutputStream fos = new FileOutputStream(file)) {
+                        fos.write(imageBytes);
+                        fos.flush();
+                        ok = true;
+                    }
+                    MediaScannerConnection.scanFile(MainActivity.this, new String[]{file.getAbsolutePath()}, new String[]{mimeType}, null);
+                }
+
+                final boolean success = ok;
+                runOnUiThread(() -> {
+                    if (success) {
+                        Toast.makeText(MainActivity.this, "Foto guardada en tu Galería 📸", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(MainActivity.this, "No se pudo guardar la foto", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Error al guardar foto: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
     }
 
     private void refreshMonitor() {
