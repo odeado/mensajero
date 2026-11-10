@@ -117,6 +117,7 @@ const toolsToggle = $("tools-toggle");
 const toolsPanel = $("tools-panel");
 function closeTools(restoreFocus = false) {
   toolsPanel.classList.add("hidden");
+  if (typeof hideMediaSubmenu === "function") hideMediaSubmenu();
   toolsToggle.setAttribute("aria-expanded", "false");
   toolsToggle.setAttribute("aria-label", "Abrir funciones");
   if (restoreFocus) toolsToggle.focus();
@@ -132,7 +133,8 @@ toolsToggle.addEventListener("click", () => {
 $("tools-close").addEventListener("click", () => closeTools(true));
 $("tools-album").addEventListener("click", openAlbum);
 toolsPanel.addEventListener("click", (event) => {
-  if (event.target.closest(".tools-grid button")) closeTools();
+  const btn = event.target.closest(".tools-grid button");
+  if (btn && btn.id !== "btn-media") closeTools();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !toolsPanel.classList.contains("hidden")) closeTools(true);
@@ -883,11 +885,13 @@ btnMedia.addEventListener("click", (e) => {
 
 mediaVideoCall.addEventListener("click", () => {
   hideMediaSubmenu();
+  closeTools();
   videoCalls.start();
 });
 
 mediaPhotos.addEventListener("click", () => {
   hideMediaSubmenu();
+  closeTools();
   photoModal.classList.remove("hidden");
 });
 

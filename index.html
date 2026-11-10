@@ -119,11 +119,12 @@
         <button type="button" class="tools-close" id="tools-close" aria-label="Cerrar funciones"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="tools-grid">
-        <button type="button" id="btn-media" class="media-btn" aria-expanded="false" aria-haspopup="true">
-          <span class="media-icon">📎</span>
-          <span class="media-label">Media</span>
-          <i class="fa-solid fa-chevron-down media-chevron" aria-hidden="true"></i>
-          <!-- Submenú Media (Videollamada + Fotos) - HIJO del botón para positioning absoluto -->
+        <div class="media-wrapper">
+          <button type="button" id="btn-media" class="media-btn" aria-expanded="false" aria-haspopup="true">
+            <span class="media-icon">📎</span>
+            <span>Media <i class="fa-solid fa-chevron-down media-chevron" aria-hidden="true"></i></span>
+          </button>
+          <!-- Submenú Media (Videollamada + Fotos) -->
           <div id="media-submenu" class="media-submenu hidden" role="menu" aria-label="Opciones de media">
             <button type="button" role="menuitem" id="media-video-call" class="media-submenu-item">
               <span class="media-submenu-icon">📹</span>
@@ -134,7 +135,7 @@
               <span>Fotos</span>
             </button>
           </div>
-        </button>
+        </div>
         <button type="button" id="mic-btn"><span>🎙️</span>Nota de voz</button>
         <button type="button" id="btn-dictate" aria-pressed="false"><span>🗣️</span>Dictado</button>
         <button type="button" id="btn-emoji"><span>😊</span>Emojis</button>
