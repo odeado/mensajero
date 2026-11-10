@@ -65,7 +65,10 @@ const loadMoreBtn = $("load-more");
 const sendForm = $("send-form");
 const input = $("message-input");
 const sendBtn = $("send-btn");
-const btnAttach = $("btn-attach");
+const btnMedia = $("btn-media");
+const mediaSubmenu = $("media-submenu");
+const mediaVideoCall = $("media-video-call");
+const mediaPhotos = $("media-photos");
 const btnEmoji = $("btn-emoji");
 const btnGames = $("btn-games");
 const btnSendCard = $("btn-send-card");
@@ -859,7 +862,42 @@ function hidePhotoMenu() {
   photoModal.classList.add("hidden");
 }
 
-btnAttach.addEventListener("click", () => photoModal.classList.remove("hidden"));
+function hideMediaSubmenu() {
+  mediaSubmenu.classList.add("hidden");
+  btnMedia.setAttribute("aria-expanded", "false");
+}
+
+function showMediaSubmenu() {
+  mediaSubmenu.classList.remove("hidden");
+  btnMedia.setAttribute("aria-expanded", "true");
+}
+
+function toggleMediaSubmenu() {
+  if (mediaSubmenu.classList.contains("hidden")) showMediaSubmenu();
+  else hideMediaSubmenu();
+}
+
+btnMedia.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleMediaSubmenu();
+});
+
+mediaVideoCall.addEventListener("click", () => {
+  hideMediaSubmenu();
+  videoCalls.start();
+});
+
+mediaPhotos.addEventListener("click", () => {
+  hideMediaSubmenu();
+  photoModal.classList.remove("hidden");
+});
+
+// Cerrar submenú al hacer click fuera
+document.addEventListener("click", (e) => {
+  if (!mediaSubmenu.classList.contains("hidden") && !mediaSubmenu.contains(e.target) && e.target !== btnMedia) {
+    hideMediaSubmenu();
+  }
+});
 
 $("photo-source-close").addEventListener("click", hidePhotoMenu);
 $("photo-gallery").addEventListener("click", () => {
