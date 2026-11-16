@@ -149,9 +149,9 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 // ---------- Estado ----------
-const PAGE = 50;
-const ONLINE_WINDOW_MS = 75_000;
-const HEARTBEAT_MS = 30_000;
+const PAGE = 30; // mensajes por carga: menos peso al abrir (fotos/audios van dentro del mensaje)
+const ONLINE_WINDOW_MS = 150_000; // "en línea" si dio señales de vida hace menos de 2,5 min
+const HEARTBEAT_MS = 60_000;      // 1 latido por minuto = la mitad de escrituras que antes
 
 let me = null;            // { uid, email, name, avatar }
 let partner = null;       // { email, name, avatar, uid? }
@@ -207,6 +207,9 @@ function resolveEmail(userInput) {
   if (norm === "papa" || norm === "papá") return "papa@chat-familia.local";
   if (norm === "hija") return "hija@chat-familia.local";
   if (norm === "amor" || norm === "esposa" || norm === "mama" || norm === "mamá") return "amor@chat-familia.local";
+  // También vale el nombre que cada uno eligió en "Mi perfil" (si este equipo ya lo conoce)
+  const byProfile = Object.keys(FAMILY).find((email) => cachedName(email).toLowerCase() === norm);
+  if (byProfile) return byProfile;
   return norm + "@chat-familia.local";
 }
 
@@ -1782,12 +1785,12 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", stopDictation);
 
-async function compressImage(file, { postal = false, limit: LIMIT = 700_000 } = {}) {
+async function compressImage(file, { postal = false, limit: LIMIT = 450_000 } = {}) {
   const img = await loadImage(file);
   const isPng = file.type === "image/png";
   const takenAt = new Date();
 
-  for (const maxSide of [1280, 1024, 800, 640]) {
+  for (const maxSide of [1024, 800, 640]) {
     const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
     const w = Math.round(img.width * scale);
     const h = Math.round(img.height * scale);
@@ -2420,6 +2423,19 @@ function subscribeStatus() {
     if (partnerStatus?.name && partnerStatus.name !== partner.name) {
       partner.name = partnerStatus.name;
       cacheName(partner.email, partnerStatus.name);
+    }
+    // Los otros chats (p. ej. Hija mientras Papá está con Amor) también cambian de nombre/avatar
+    let othersChanged = false;
+    for (const c of availableChats) {
+      if (c.partnerEmail === partner.email) continue;
+      const st = snap.docs.find((d) => d.data().email === c.partnerEmail)?.data();
+      if (!st) continue;
+      if (st.name && st.name !== c.partnerName) { c.partnerName = st.name; cacheName(c.partnerEmail, st.name); othersChanged = true; }
+      if (st.avatar && st.avatar !== c.partnerAvatar) { c.partnerAvatar = st.avatar; cacheAvatar(c.partnerEmail, st.avatar); othersChanged = true; }
+    }
+    if (othersChanged) {
+      syncNativeChat();
+      if (!chatPickerModal.classList.contains("hidden")) renderChatPicker();
     }
     renderAvatars();
     renderNames();

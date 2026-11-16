@@ -32,6 +32,24 @@ test('se impiden envíos cruzados y suplantar al remitente', async () => {
   await assertFails(setDoc(doc(db, 'messages', 'cross'), message('papa_amor', 'hija')));
   await assertFails(setDoc(doc(db, 'messages', 'fake'), message('papa_hija', 'papa')));
 });
+test('solo se aceptan mensajes con formato conocido y tamaño razonable', async () => {
+  const db = database('hija');
+  const base = { chatId: 'papa_hija', senderUid: 'hija', read: false, createdAt: serverTimestamp() };
+  const img = 'data:image/webp;base64,' + 'A'.repeat(5000);
+  await assertSucceeds(setDoc(doc(db, 'messages', 'img'), { ...base, type: 'image', image: img }));
+  await assertSucceeds(setDoc(doc(db, 'messages', 'live'), { ...base, type: 'image', images: [img, img], motion: 'pan', frame: true }));
+  await assertSucceeds(setDoc(doc(db, 'messages', 'audio'), { ...base, type: 'audio', audio: 'data:audio/webm;base64,' + 'A'.repeat(5000), duration: 12 }));
+  await assertSucceeds(setDoc(doc(db, 'messages', 'art'), { ...base, type: 'textart', text: 'te quiero', style: 'neon' }));
+  await assertSucceeds(setDoc(doc(db, 'messages', 'game'), { ...base, type: 'game', game: 'jenga', gameId: 'abc123' }));
+  await assertSucceeds(setDoc(doc(db, 'messages', 'card'), { ...base, type: 'msncard', card: { titulo: 'Hola', efecto: 'corazones' } }));
+  await assertFails(setDoc(doc(db, 'messages', 'tipo'), { ...base, type: 'video', video: 'x' }));
+  await assertFails(setDoc(doc(db, 'messages', 'extra'), { ...base, type: 'text', text: 'Hola', admin: true }));
+  await assertFails(setDoc(doc(db, 'messages', 'vacio'), { ...base, type: 'text', text: '' }));
+  await assertFails(setDoc(doc(db, 'messages', 'largo'), { ...base, type: 'text', text: 'a'.repeat(4001) }));
+  await assertFails(setDoc(doc(db, 'messages', 'img-grande'), { ...base, type: 'image', image: 'data:image/webp;base64,' + 'A'.repeat(760000) }));
+  await assertFails(setDoc(doc(db, 'messages', 'muchas'), { ...base, type: 'image', images: [img, img, img, img, img] }));
+  await assertFails(setDoc(doc(db, 'messages', 'juego-raro'), { ...base, type: 'game', game: 'ajedrez', gameId: 'x' }));
+});
 test('leídos y reacciones no permiten modificar el contenido ni otro chat', async () => {
   await assertSucceeds(updateDoc(doc(database('papa'), 'messages', 'hija'), { read: true }));
   await assertFails(updateDoc(doc(database('hija'), 'messages', 'amor'), { read: true }));

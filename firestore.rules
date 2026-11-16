@@ -22,15 +22,44 @@ service cloud.firestore {
       );
     }
 
+    // Campos comunes a todo mensaje
+    function baseKeys() { return ['chatId', 'senderUid', 'type', 'createdAt', 'read']; }
+
+    function validMessage(d) {
+      return (d.type == 'text'
+          && d.keys().hasOnly(baseKeys().concat(['text']))
+          && d.text is string && d.text.size() > 0 && d.text.size() <= 4000)
+        || (d.type == 'textart'
+          && d.keys().hasOnly(baseKeys().concat(['text', 'style']))
+          && d.text is string && d.text.size() > 0 && d.text.size() <= 40
+          && d.style is string && d.style.size() <= 30)
+        || (d.type == 'image'
+          && d.keys().hasOnly(baseKeys().concat(['image', 'images', 'motion', 'frame']))
+          && ((d.get('image', '') is string && d.get('image', '').size() > 0 && d.get('image', '').size() <= 750000 && !('images' in d))
+            || (d.get('images', []) is list && d.get('images', []).size() > 0 && d.get('images', []).size() <= 4 && !('image' in d))))
+        || (d.type == 'audio'
+          && d.keys().hasOnly(baseKeys().concat(['audio', 'duration']))
+          && d.audio is string && d.audio.size() > 0 && d.audio.size() <= 900000
+          && d.duration is number && d.duration >= 0 && d.duration <= 600)
+        || (d.type == 'game'
+          && d.keys().hasOnly(baseKeys().concat(['game', 'gameId']))
+          && d.game in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga', 'pictionary']
+          && d.gameId is string && d.gameId.size() > 0 && d.gameId.size() <= 64)
+        || (d.type == 'msncard'
+          && d.keys().hasOnly(baseKeys().concat(['card']))
+          && d.card is map);
+    }
+
     match /messages/{id} {
       // Permitir leer mensajes a los usuarios autorizados de la familia
       allow read: if inChat(resource.data.chatId);
 
-      // Permitir crear mensajes si eres de la familia y el mensaje va a tu nombre
+      // Crear: ser de ese chat, a tu nombre y con un formato de mensaje conocido
       allow create: if inChat(request.resource.data.chatId)
         && request.resource.data.senderUid == request.auth.uid
         && request.resource.data.read == false
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt == request.time
+        && validMessage(request.resource.data);
 
       allow update: if inChat(resource.data.chatId) && (
         // Marcar como leído
