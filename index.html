@@ -19,7 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/extra.css">
+  <link rel="stylesheet" href="css/extra.css?v=pwa-20261122">
   <link rel="stylesheet" href="css/fun.css">
   <link rel="stylesheet" href="css/msncard.css?v=msncard-alpha-20261025-r2">
   <link rel="stylesheet" href="css/card-gallery.css">
@@ -79,6 +79,32 @@
     </header>
 
     <div id="net-banner" class="net-banner hidden">Sin conexión — los mensajes se enviarán al volver</div>
+
+    <!-- Banner para instalar la PWA directamente en la pantalla de inicio -->
+    <div id="pwa-install-banner" class="pwa-banner hidden" role="region" aria-label="Instalar aplicación">
+      <div class="pwa-banner-icon">📲</div>
+      <div class="pwa-banner-text">
+        <strong id="pwa-install-title">Instalar aplicación</strong>
+        <span id="pwa-install-desc">Agrégala a tu pantalla de inicio sin descargas ni bloqueos</span>
+      </div>
+      <div class="pwa-banner-actions">
+        <button type="button" id="pwa-install-btn" class="pwa-banner-btn primary">Instalar</button>
+        <button type="button" id="pwa-install-dismiss" class="pwa-banner-btn close" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+
+    <!-- Banner para activar notificaciones activas para no perderse mensajes -->
+    <div id="pwa-notif-banner" class="pwa-banner hidden" role="region" aria-label="Activar notificaciones">
+      <div class="pwa-banner-icon">🔔</div>
+      <div class="pwa-banner-text">
+        <strong>Notificaciones activas</strong>
+        <span>Actívalas para recibir mensajes con la pantalla apagada</span>
+      </div>
+      <div class="pwa-banner-actions">
+        <button type="button" id="pwa-notif-btn" class="pwa-banner-btn primary">Activar</button>
+        <button type="button" id="pwa-notif-dismiss" class="pwa-banner-btn close" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
 
     <main class="messages-container" id="messages-container">
       <button id="load-more" class="load-more hidden">Cargar mensajes anteriores</button>
@@ -158,6 +184,7 @@
         </select>
       </label>
       <div class="tools-secondary">
+        <button type="button" id="pwa-install-menu-btn" class="hidden" title="Instalar aplicación en pantalla de inicio">📲 Instalar App</button>
         <button type="button" id="bell-btn" title="Notificaciones">🔔 Avisos</button>
         <button type="button" id="logout-btn" title="Cerrar sesión / cambiar usuario">Cerrar sesión</button>
       </div>
@@ -434,6 +461,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=revision-20261114"></script>
+  <script type="module" src="js/app.js?v=pwa-20261122"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import {
   writeBatch, serverTimestamp, deleteField, connectFirestoreEmulator, startAfter
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { AVATARS, REACTIONS, emojiOnlyCount, createEmojiPicker, insertAtCursor } from "./emoji.js";
-import { registerSW, notify, notifState, toggleNotifications, pop } from "./notify.js";
+import { registerSW, notify, notifState, toggleNotifications, requestNotificationPermission, pop } from "./notify.js";
 import { initGames, openGamesMenu, openGame, closeGame } from "./games.js";
 import { GAMES } from "./games-logic.js";
 import { playMsnCard } from "./msncard.js?v=msncard-alpha-20261025-r2";
@@ -86,6 +86,15 @@ const lightboxTitle = $("lightbox-title");
 const lightboxDate = $("lightbox-date");
 const lightboxCounter = $("lightbox-counter");
 const lightboxClose = $("lightbox-close");
+const pwaInstallBanner = $("pwa-install-banner");
+const pwaInstallTitle = $("pwa-install-title");
+const pwaInstallDesc = $("pwa-install-desc");
+const pwaInstallBtn = $("pwa-install-btn");
+const pwaInstallDismiss = $("pwa-install-dismiss");
+const pwaInstallMenuBtn = $("pwa-install-menu-btn");
+const pwaNotifBanner = $("pwa-notif-banner");
+const pwaNotifBtn = $("pwa-notif-btn");
+const pwaNotifDismiss = $("pwa-notif-dismiss");
 const toastEl = $("toast");
 const reactionBar = $("reaction-bar");
 const profileModal = $("profile-modal");
@@ -404,6 +413,7 @@ function startChat() {
 
   renderAvatars();
   renderBell();
+  checkPwaNotificationsPrompt();
   document.title = `Chat con ${partner.name}`;
 
   msgLimit = PAGE;
@@ -2533,6 +2543,117 @@ bellBtn.addEventListener("click", async () => {
   else if (s === "off") toast("🔕 Notificaciones desactivadas");
   else if (s === "denied") toast("Las notificaciones están bloqueadas en el navegador. Actívalas en la configuración del sitio.");
 });
+
+// ---------- PWA: Instalación y Notificaciones Activas ----------
+let deferredInstallPrompt = null;
+
+function isStandalonePWA() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+         window.navigator.standalone === true ||
+         document.referrer.includes("android-app://");
+}
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+
+function setupPWAInstall() {
+  if (isStandalonePWA() || window.MensajeroNative) {
+    pwaInstallBanner?.classList.add("hidden");
+    pwaInstallMenuBtn?.classList.add("hidden");
+    return;
+  }
+
+  // Capturar evento de instalación en Chrome/Edge/Samsung/Android
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    pwaInstallMenuBtn?.classList.remove("hidden");
+
+    if (sessionStorage.getItem("pwa_install_dismissed") !== "1") {
+      pwaInstallBanner?.classList.remove("hidden");
+    }
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    pwaInstallBanner?.classList.add("hidden");
+    pwaInstallMenuBtn?.classList.add("hidden");
+    toast("📲 ¡Aplicación instalada con éxito!");
+  });
+
+  // Instrucciones amigables para iOS (Safari no emite beforeinstallprompt)
+  if (isIOS() && !isStandalonePWA() && sessionStorage.getItem("pwa_install_dismissed") !== "1") {
+    if (pwaInstallBanner && pwaInstallTitle && pwaInstallDesc) {
+      pwaInstallTitle.textContent = "Instalar en iPhone / iPad";
+      pwaInstallDesc.textContent = "Toca Compartir ⎋ y luego 'Agregar a pantalla de inicio'";
+      if (pwaInstallBtn) pwaInstallBtn.textContent = "Entendido 👍";
+      pwaInstallBanner.classList.remove("hidden");
+    }
+  }
+
+  const triggerInstall = async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice && choice.outcome === "accepted") {
+        pwaInstallBanner?.classList.add("hidden");
+        pwaInstallMenuBtn?.classList.add("hidden");
+      }
+      deferredInstallPrompt = null;
+    } else if (isIOS()) {
+      toast("Para instalar: toca Compartir ⎋ abajo y luego 'Agregar a pantalla de inicio' 📲");
+    } else {
+      toast("Puedes instalar la aplicación desde el menú ⋮ de tu navegador ('Instalar aplicación')");
+    }
+  };
+
+  pwaInstallBtn?.addEventListener("click", triggerInstall);
+  pwaInstallMenuBtn?.addEventListener("click", () => {
+    closeTools();
+    triggerInstall();
+  });
+
+  pwaInstallDismiss?.addEventListener("click", () => {
+    pwaInstallBanner?.classList.add("hidden");
+    sessionStorage.setItem("pwa_install_dismissed", "1");
+  });
+}
+
+function checkPwaNotificationsPrompt() {
+  if (window.MensajeroNative) {
+    pwaNotifBanner?.classList.add("hidden");
+    return;
+  }
+
+  const state = notifState();
+  if (state !== "default" || sessionStorage.getItem("pwa_notif_dismissed") === "1") {
+    pwaNotifBanner?.classList.add("hidden");
+    return;
+  }
+
+  pwaNotifBanner?.classList.remove("hidden");
+}
+
+pwaNotifBtn?.addEventListener("click", async () => {
+  const state = await requestNotificationPermission();
+  renderBell();
+  pwaNotifBanner?.classList.add("hidden");
+  if (state === "granted") {
+    toast("🔔 ¡Notificaciones activadas!");
+    notify("Chat Papá & Hija 💬", "Notificaciones activadas. Recibirás avisos aquí con la pantalla apagada.");
+  } else if (state === "denied") {
+    toast("Las notificaciones están bloqueadas en el navegador. Puedes activarlas en la configuración del sitio.");
+  }
+});
+
+pwaNotifDismiss?.addEventListener("click", () => {
+  pwaNotifBanner?.classList.add("hidden");
+  sessionStorage.setItem("pwa_notif_dismissed", "1");
+});
+
+setupPWAInstall();
+checkPwaNotificationsPrompt();
 
 // ---------- Red ----------
 function updateNet() { netBanner.classList.toggle("hidden", navigator.onLine); }

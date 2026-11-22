@@ -89,3 +89,89 @@
 
 .profile-btn.selected { border-color: var(--accent-green); background: #344854; }
 .profiles-grid { margin-bottom: 4px; }
+
+
+/* Banners PWA (Instalación y Notificaciones) */
+.pwa-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(32, 44, 51, 0.95) 0%, rgba(17, 27, 33, 0.95) 100%);
+  border-bottom: 1px solid rgba(100, 227, 188, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 100;
+  animation: pwa-banner-in 0.25s ease-out;
+}
+.pwa-banner.hidden {
+  display: none !important;
+}
+@keyframes pwa-banner-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pwa-banner-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.pwa-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.pwa-banner-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  line-height: 1.2;
+}
+.pwa-banner-text span {
+  font-size: 11.5px;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.25;
+}
+.pwa-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.pwa-banner-btn.primary {
+  background: var(--accent-green, #00a884);
+  color: #ffffff;
+  border: none;
+  border-radius: 18px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+.pwa-banner-btn.primary:active {
+  transform: scale(0.95);
+}
+.pwa-banner-btn.close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+.pwa-banner-btn.close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #ffffff);
+}
