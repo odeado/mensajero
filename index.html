@@ -166,6 +166,13 @@
                 <small>Cámara o galería</small>
               </span>
             </button>
+            <button type="button" role="menuitem" id="media-video" class="media-submenu-item">
+              <span class="media-submenu-icon">🎥</span>
+              <span class="media-submenu-text">
+                <strong>Video</strong>
+                <small>Clip corto (unos segundos)</small>
+              </span>
+            </button>
           </div>
         </div>
         <button type="button" id="mic-btn"><span>🎙️</span>Nota de voz</button>
@@ -192,6 +199,8 @@
     <form class="chat-input-bar" id="send-form">
       <input type="file" id="file-input" accept="image/*" multiple class="hidden">
       <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+      <input type="file" id="video-input" accept="video/*" class="hidden">
+      <input type="file" id="video-camera-input" accept="video/*" capture="environment" class="hidden">
       <input type="file" id="card-file-input" accept=".msncard,.json" class="hidden">
       <button type="button" class="icon-btn tools-toggle" id="tools-toggle" aria-label="Abrir funciones" aria-expanded="false" aria-controls="tools-panel">
         <span aria-hidden="true">+</span>
@@ -373,6 +382,43 @@
     </div>
   </div>
 
+  <!-- Elegir origen del video (grabar o galería) -->
+  <div id="video-source-modal" class="modal-unified hidden">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="video-title">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3 id="video-title">Enviar un video</h3>
+          <p>Se envía como un clip corto y liviano</p>
+        </div>
+        <button class="modal-close" id="video-source-close" type="button" aria-label="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="photo-options" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+        <button type="button" class="photo-option modal-btn ghost" id="video-record" style="justify-content: flex-start; text-align: left; padding: 14px 16px; gap: 14px;">
+          <span class="photo-option-icon" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-green), var(--accent-blue)); display: flex; align-items: center; justify-content: center; font-size: 18px;"><i class="fa-solid fa-video"></i></span>
+          <span class="photo-option-text" style="flex: 1; text-align: left;">
+            <strong>Grabar video</strong>
+            <small>Usar la cámara ahora</small>
+          </span>
+          <i class="fa-solid fa-chevron-right photo-option-arrow" style="color: var(--text-muted);"></i>
+        </button>
+
+        <button type="button" class="photo-option modal-btn ghost" id="video-gallery" style="justify-content: flex-start; text-align: left; padding: 14px 16px; gap: 14px;">
+          <span class="photo-option-icon" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); display: flex; align-items: center; justify-content: center; font-size: 18px;"><i class="fa-regular fa-folder-open"></i></span>
+          <span class="photo-option-text" style="flex: 1; text-align: left;">
+            <strong>Galería</strong>
+            <small>Elegir un video guardado</small>
+          </span>
+          <i class="fa-solid fa-chevron-right photo-option-arrow" style="color: var(--text-muted);"></i>
+        </button>
+      </div>
+
+      <p class="photo-note" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-bolt"></i> Se recorta a unos segundos y se comprime para que pese poco</p>
+    </div>
+  </div>
+
   <!-- Cámara en vivo: panel lateral junto al chat -->
   <div id="camera-dock-backdrop" class="camera-dock-backdrop hidden"></div>
   <aside id="camera-dock" class="camera-dock hidden" aria-hidden="true" aria-label="Cámara">
@@ -461,6 +507,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js?v=pwa-20261122"></script>
+  <script type="module" src="js/app.js?v=video-20261125"></script>
 </body>
 </html>

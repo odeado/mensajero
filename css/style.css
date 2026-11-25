@@ -507,6 +507,20 @@ body {
   background-color: transparent;
 }
 
+/* Video Messages */
+.video-msg-container {
+  background: #000;
+  cursor: default;
+}
+
+.video-msg-container video {
+  width: 100%;
+  max-height: 320px;
+  display: block;
+  border-radius: 12px;
+  background: #000;
+}
+
 .img-msg-container img:hover {
   transform: scale(1.01);
 }

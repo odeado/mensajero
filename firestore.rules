@@ -41,6 +41,10 @@ service cloud.firestore {
           && d.keys().hasOnly(baseKeys().concat(['audio', 'duration']))
           && d.audio is string && d.audio.size() > 0 && d.audio.size() <= 900000
           && d.duration is number && d.duration >= 0 && d.duration <= 600)
+        || (d.type == 'video'
+          && d.keys().hasOnly(baseKeys().concat(['video', 'duration']))
+          && d.video is string && d.video.size() > 0 && d.video.size() <= 900000
+          && d.duration is number && d.duration >= 0 && d.duration <= 30)
         || (d.type == 'game'
           && d.keys().hasOnly(baseKeys().concat(['game', 'gameId']))
           && d.game in ['gato', 'cuatro', 'damas', 'cachipun', 'jenga', 'pictionary']

@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app como PWA, abrir sin señal y recibir notificaciones activas.
 // Estrategia "red primero" con respaldo en caché para que siempre esté al día.
-const CACHE = "chat-revision-20261122-pwa";
+const CACHE = "chat-video-20261125";
 
 const PRECACHE_ASSETS = [
   "./",

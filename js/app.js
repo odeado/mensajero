@@ -69,6 +69,7 @@ const btnMedia = $("btn-media");
 const mediaSubmenu = $("media-submenu");
 const mediaVideoCall = $("media-video-call");
 const mediaPhotos = $("media-photos");
+const mediaVideo = $("media-video");
 const btnEmoji = $("btn-emoji");
 const btnGames = $("btn-games");
 const btnSendCard = $("btn-send-card");
@@ -77,6 +78,9 @@ const emojiPanel = $("emoji-panel");
 const fileInput = $("file-input");
 const cameraInput = $("camera-input");
 const photoModal = $("photo-source-modal");
+const videoInput = $("video-input");
+const videoCameraInput = $("video-camera-input");
+const videoSourceModal = $("video-source-modal");
 const lightbox = $("lightbox-modal");
 const lightboxContainer = $("lightbox-container");
 const lightboxImg = $("lightbox-img");
@@ -436,7 +440,7 @@ function stopChat() {
   closeTools();
   closeGame();
   if (mediaRecorder) stopRecording(false);
-  for (const modal of [albumModal, lightbox, profileModal, searchModal, photoModal, chatPickerModal, emojiPanel]) modal.classList.add("hidden");
+  for (const modal of [albumModal, lightbox, profileModal, searchModal, photoModal, videoSourceModal, chatPickerModal, emojiPanel]) modal.classList.add("hidden");
   closeTextart();
   closeCameraDock();
   albumGrid.replaceChildren();
@@ -592,6 +596,7 @@ function incoming(m) {
 
   const body = m.type === "image" ? "📷 Foto"
     : m.type === "audio" ? "🎙️ Nota de voz"
+    : m.type === "video" ? "🎥 Video"
     : m.type === "textart" ? `✨ ${m.text || ""}`
     : m.type === "msncard" ? `🎁 ${m.card?.titulo || "Te envió una presentación"}`
     : m.type === "game" ? `🎮 Te invitó a jugar ${GAMES[m.game]?.name || ""}`
@@ -625,6 +630,7 @@ function messageSearchText(m) {
   const parts = [];
   if (m.type === "image") parts.push("foto imagen");
   else if (m.type === "audio") parts.push("nota de voz audio");
+  else if (m.type === "video") parts.push("video clip");
   else if (m.type === "textart") parts.push("texto grande", String(m.text || ""));
   else if (m.type === "msncard") parts.push("presentacion tarjeta", m.card?.titulo || "", m.card?.texto || "");
   else if (m.type === "game") parts.push("juego", GAMES[m.game]?.name || "");
@@ -642,6 +648,7 @@ function messageSearchText(m) {
 function messagePreview(m) {
   if (m.type === "image") return "📷 Foto";
   if (m.type === "audio") return "🎙️ Nota de voz";
+  if (m.type === "video") return "🎥 Video";
   if (m.type === "textart") return `✨ ${m.text || ""}`;
   if (m.type === "msncard") return `🎁 ${m.card?.titulo || "Presentación"}`;
   if (m.type === "game") return `🎮 ${GAMES[m.game]?.name || "Juego"}`;
@@ -651,6 +658,7 @@ function messagePreview(m) {
 function messageIcon(m) {
   if (m.type === "image") return "fa-image";
   if (m.type === "audio") return "fa-microphone";
+  if (m.type === "video") return "fa-video";
   if (m.type === "textart") return "fa-wand-magic-sparkles";
   if (m.type === "msncard") return "fa-gift";
   if (m.type === "game") return "fa-gamepad";
@@ -913,6 +921,12 @@ mediaPhotos.addEventListener("click", () => {
   photoModal.classList.remove("hidden");
 });
 
+mediaVideo.addEventListener("click", () => {
+  hideMediaSubmenu();
+  closeTools();
+  videoSourceModal.classList.remove("hidden");
+});
+
 // Cerrar submenú al hacer click fuera
 document.addEventListener("click", (e) => {
   if (!mediaSubmenu.classList.contains("hidden") && !mediaSubmenu.contains(e.target) && e.target !== btnMedia) {
@@ -931,6 +945,22 @@ $("photo-camera").addEventListener("click", () => {
 });
 photoModal.addEventListener("click", (e) => {
   if (e.target === photoModal) hidePhotoMenu();
+});
+
+function hideVideoMenu() {
+  videoSourceModal.classList.add("hidden");
+}
+$("video-source-close").addEventListener("click", hideVideoMenu);
+$("video-record").addEventListener("click", () => {
+  hideVideoMenu();
+  pickPhoto(videoCameraInput);
+});
+$("video-gallery").addEventListener("click", () => {
+  hideVideoMenu();
+  pickPhoto(videoInput);
+});
+videoSourceModal.addEventListener("click", (e) => {
+  if (e.target === videoSourceModal) hideVideoMenu();
 });
 
 // --- Panel de cámara ---
@@ -1245,6 +1275,147 @@ async function handlePhotoInput(e) {
 
 fileInput.addEventListener("change", handlePhotoInput);
 cameraInput.addEventListener("change", handlePhotoInput);
+
+// ---------- Video corto (se vuelve a grabar más chico, como una "foto viva" pero con sonido) ----------
+// Firestore solo acepta ~1MB por mensaje, así que el video original se reduce
+// dibujándolo en un canvas pequeño y re-grabándolo unos segundos con MediaRecorder.
+const VIDEO_LIMIT = 850_000;
+const VIDEO_TIERS = [
+  { maxSide: 480, seconds: 6, videoBps: 320_000, audioBps: 32_000 },
+  { maxSide: 360, seconds: 5, videoBps: 220_000, audioBps: 24_000 },
+  { maxSide: 240, seconds: 4, videoBps: 140_000, audioBps: 16_000 }
+];
+
+function pickVideoMime() {
+  if (!window.MediaRecorder?.isTypeSupported) return "";
+  const options = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  return options.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function captureVideoStream(videoEl) {
+  if (videoEl.captureStream) return videoEl.captureStream();
+  if (videoEl.mozCaptureStream) return videoEl.mozCaptureStream();
+  return null;
+}
+
+function recordVideoTier(video, srcStream, tier) {
+  return new Promise((resolve, reject) => {
+    const baseW = video.videoWidth || tier.maxSide;
+    const baseH = video.videoHeight || tier.maxSide;
+    const scale = Math.min(1, tier.maxSide / Math.max(baseW, baseH));
+    const w = Math.max(2, Math.round(baseW * scale));
+    const h = Math.max(2, Math.round(baseH * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    const canvasStream = canvas.captureStream(24);
+    const combined = new MediaStream([...canvasStream.getVideoTracks(), ...srcStream.getAudioTracks()]);
+
+    const mime = pickVideoMime();
+    let recorder;
+    try {
+      recorder = new MediaRecorder(combined, mime
+        ? { mimeType: mime, videoBitsPerSecond: tier.videoBps, audioBitsPerSecond: tier.audioBps }
+        : { videoBitsPerSecond: tier.videoBps, audioBitsPerSecond: tier.audioBps });
+    } catch (err) { return reject(err); }
+
+    const chunks = [];
+    let stopped = false;
+    let rafId = null;
+    let timer = null;
+    const finish = () => {
+      if (stopped) return;
+      stopped = true;
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+      video.pause();
+      try { recorder.stop(); } catch { reject(new Error("no-se-pudo-detener")); }
+    };
+
+    recorder.addEventListener("dataavailable", (e) => { if (e.data?.size) chunks.push(e.data); });
+    recorder.addEventListener("stop", async () => {
+      try {
+        const blob = new Blob(chunks, { type: chunks[0]?.type || "video/webm" });
+        if (!blob.size) return reject(new Error("vacio"));
+        resolve(await blobToDataURL(blob));
+      } catch (err) { reject(err); }
+    }, { once: true });
+    recorder.addEventListener("error", (e) => reject(e.error || new Error("recorder-error")));
+
+    function draw() {
+      if (stopped) return;
+      ctx.drawImage(video, 0, 0, w, h);
+      rafId = requestAnimationFrame(draw);
+    }
+
+    video.addEventListener("ended", finish, { once: true });
+    timer = setTimeout(finish, tier.seconds * 1000);
+    video.currentTime = 0;
+    video.play().then(() => {
+      recorder.start(250);
+      draw();
+    }).catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
+async function compressVideo(file) {
+  if (!window.MediaRecorder) throw new Error("sin-mediarecorder");
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  try {
+    video.src = url;
+    video.muted = true; // Así se reproduce solo (sin bloqueo del navegador) aunque sí se captura el audio real.
+    video.playsInline = true;
+    video.preload = "auto";
+    await new Promise((resolve, reject) => {
+      video.addEventListener("loadedmetadata", resolve, { once: true });
+      video.addEventListener("error", () => reject(new Error("no-se-pudo-leer")), { once: true });
+      setTimeout(() => reject(new Error("tiempo-agotado")), 8000);
+    });
+
+    const srcStream = captureVideoStream(video);
+    if (!srcStream) throw new Error("sin-capturestream");
+
+    let lastError = null;
+    for (const tier of VIDEO_TIERS) {
+      try {
+        const data = await recordVideoTier(video, srcStream, tier);
+        if (data && data.length <= VIDEO_LIMIT) {
+          return { video: data, duration: Math.round(Math.min(tier.seconds, video.duration || tier.seconds)) };
+        }
+      } catch (err) { lastError = err; }
+    }
+    throw lastError || new Error("no-se-pudo-comprimir");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function sendVideoFiles(files, target = captureDestination(me, currentChatId)) {
+  if (!me) return;
+  const list = Array.from(files || []).filter((f) => f && String(f.type).startsWith("video/"));
+  if (!list.length) return toast("Solo se pueden enviar videos.");
+  if (list.length > 1) toast("Por ahora se envía un video a la vez.");
+
+  try {
+    toast("Preparando video…");
+    const { video, duration } = await compressVideo(list[0]);
+    await sendMessage({ type: "video", video, duration }, target);
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo preparar ese video. Prueba uno más corto.");
+  }
+}
+
+async function handleVideoInput(e) {
+  const inputEl = e.currentTarget;
+  const files = Array.from(inputEl.files || []);
+  inputEl.value = "";
+  if (me && files.length) await sendVideoFiles(files, inputEl._destination || captureDestination(me, currentChatId));
+}
+
+videoInput.addEventListener("change", handleVideoInput);
+videoCameraInput.addEventListener("change", handleVideoInput);
 
 // ---------- Álbum de fotos del chat ----------
 let albumBusy = false;
@@ -2143,6 +2314,16 @@ function buildBubble(id, m, pending) {
     el.appendChild(wrap);
   } else if (m.type === "audio" && typeof m.audio === "string" && m.audio.startsWith("data:audio/")) {
     el.appendChild(buildAudioPlayer(m.audio, m.duration));
+  } else if (m.type === "video" && typeof m.video === "string" && m.video.startsWith("data:video/")) {
+    const wrap = document.createElement("div");
+    wrap.className = "img-msg-container video-msg-container";
+    const vid = document.createElement("video");
+    vid.src = m.video;
+    vid.controls = true;
+    vid.playsInline = true;
+    vid.preload = "metadata";
+    wrap.appendChild(vid);
+    el.appendChild(wrap);
   } else if (m.type === "msncard" && m.card) {
     el.classList.add("card-bubble");
     const wrap = document.createElement("div");
